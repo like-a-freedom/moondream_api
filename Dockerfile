@@ -21,10 +21,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV CMAKE_BUILD_TYPE=Release
 ENV CC=gcc
 ENV CXX=g++
-# ENV CFLAGS="-march=native"
-# ENV CXXFLAGS="-march=native"
-ENV CFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
-ENV CXXFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
+ENV CFLAGS="-march=native"
+ENV CXXFLAGS="-march=native"
+# ENV CFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
+# ENV CXXFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
 # Disable x86 specific optimizations
 ENV CPPFLAGS="-DCPUINFO_ARCH_ARM64"
 # Explicitly disable SSE and AES instructions
