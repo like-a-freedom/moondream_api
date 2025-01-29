@@ -4,14 +4,23 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
+    git \
     gcc \
     g++ \
-    git \
+    ninja-build \
+    libopenblas-dev \
+    liblapack-dev \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
+ENV CMAKE_BUILD_TYPE=Release
+ENV CC=gcc
+ENV CXX=g++
+ENV CFLAGS="-march=native"
+ENV CXXFLAGS="-march=native"
 
 WORKDIR /app
 
