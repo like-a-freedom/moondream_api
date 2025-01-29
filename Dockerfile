@@ -13,12 +13,14 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     protobuf-compiler \
     libprotoc-dev \
+    libprotobuf-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CMAKE_BUILD_TYPE=Release
+ENV CMAKE_ARGS="-DONNX_WERROR=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON"
 ENV CC=gcc
 ENV CXX=g++
 ENV CFLAGS="-march=native"
