@@ -4,30 +4,14 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
-    git \
     gcc \
     g++ \
-    ninja-build \
-    libopenblas-dev \
-    liblapack-dev \
-    python3-dev \
-    protobuf-compiler \
-    libprotoc-dev \
-    libprotobuf-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
-# Fix for ARM64 compilation issues
-ARG TARGETARCH
-ENV CMAKE_ARGS="-DONNX_USE_FULL_PROTOBUF=OFF"
-ENV ONNX_USE_LITE_PROTO=ON
-
-# Disable unsupported flags on ARM64
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-    echo "Using ARM64, adjusting compiler flags"; \
-    export CXXFLAGS="-mcpu=generic"; \
-    fi
-
+ENV UV_LINK_MODE=copy
+ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
@@ -35,13 +19,13 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    CXXFLAGS="$CXXFLAGS" uv sync --frozen --no-install-project --no-dev
+    uv sync --frozen --no-install-project --no-dev
 
 # Copy the rest of the application
 COPY . /app
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    CXXFLAGS="$CXXFLAGS" uv sync --frozen --no-dev
+    uv sync --frozen --no-dev
 
 FROM python:3.13-slim-bookworm
 
