@@ -29,15 +29,12 @@ COPY pyproject.toml uv.lock ./
 
 # First install wheels without building
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev --wheels-only
-
-# Then build remaining packages
-RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # Copy the rest of the application
 COPY . /app
 
+# Then build remaining packages
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
