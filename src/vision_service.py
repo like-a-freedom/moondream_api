@@ -52,7 +52,7 @@ class MoondreamVisionService:
 
         try:
             print(f"Downloading model from {url}")
-            response = requests.get(url, stream=True)
+            response = requests.get(url, stream=True, allow_redirects=True)
             response.raise_for_status()
 
             total_size = int(response.headers.get("content-length", 0))
