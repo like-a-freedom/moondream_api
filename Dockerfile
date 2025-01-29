@@ -1,4 +1,13 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
+FROM --platform=$BUILDPLATFORM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
+
+# Set cross-compilation environment
+ARG TARGETPLATFORM
+RUN case "${TARGETPLATFORM}" in \
+    "linux/amd64") echo x86_64-linux-gnu > /etc/arch ;; \
+    "linux/arm64") echo aarch64-linux-gnu > /etc/arch ;; \
+    *) exit 1 ;; \
+    esac
+
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -7,11 +16,13 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     git \
+    crossbuild-essential-arm64 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP_PREFER_BINARY=1
 
 WORKDIR /app
 
@@ -19,6 +30,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
+    ARCHFLAGS="-arch $(cat /etc/arch)" \
+    CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF" \
     uv sync --frozen --no-install-project --no-dev
 
 # Copy the rest of the application
@@ -27,7 +40,7 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-FROM python:3.13-slim-bookworm
+FROM python:3.13-slim-bookworm-${TARGETARCH}
 
 COPY --from=builder /usr/local/lib/python3.13/site-packages/ /usr/local/lib/python3.13/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
