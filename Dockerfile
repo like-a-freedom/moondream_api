@@ -13,6 +13,9 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_PREFER_BINARY=1
+ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DDOWNLOAD_EXTRACT_TIMESTAMP=ON -Wno-dev -DCMAKE_POLICY_DEFAULT_CMP0148=NEW -DCMAKE_POLICY_DEFAULT_CMP0135=NEW"
+ENV CFLAGS="-O2"
+ENV CXXFLAGS="-O2"
 
 WORKDIR /app
 
@@ -20,7 +23,6 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    ARCHFLAGS="-arch $(cat /etc/arch)" \
     CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF" \
     uv sync --frozen --no-install-project --no-dev
 
