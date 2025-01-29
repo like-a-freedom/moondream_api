@@ -22,7 +22,7 @@ ENV MAKEFLAGS="-j1"
 ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 ENV ONNX_ML=1
 ENV ONNX_BUILD_TESTS=OFF
-ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_FULLY_DISCONNECTED=ON -Wno-dev"
+ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF ONNX_USE_LITE_PROTO=ON -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_FULLY_DISCONNECTED=ON -Wno-dev"
 ENV CFLAGS="-O2 -pipe"
 ENV CXXFLAGS="-O2 -pipe"
 ENV LDFLAGS="-Wl,--as-needed"
@@ -38,6 +38,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Copy the rest of the application
 COPY . /app
+
+# RUN rm -rf /root/.cache/uv
 
 # Then build remaining packages
 RUN --mount=type=cache,target=/root/.cache/uv \
