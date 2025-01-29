@@ -22,12 +22,27 @@ ENV MAKEFLAGS="-j1"
 ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 ENV ONNX_ML=1
 ENV ONNX_BUILD_TESTS=OFF
-ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF ONNX_USE_LITE_PROTO=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_FULLY_DISCONNECTED=ON -Wno-dev"
-ENV CFLAGS="-O2 -pipe"
-ENV CXXFLAGS="-O2 -pipe"
+# CMake-specific flags
+ENV CMAKE_ARGS=" \
+    -DONNX_USE_PROTOBUF_SHARED_LIBS=OFF \
+    -DONNX_USE_LITE_PROTO=ON \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DFETCHCONTENT_FULLY_DISCONNECTED=ON \
+    -Wno-dev \
+    "
+
+# Compiler optimization and position-independent code
+ENV CFLAGS="-O3 -pipe -fPIC -Wall"
+ENV CXXFLAGS="-O3 -pipe -fPIC -Wall"
+
+# Linker flags
 ENV LDFLAGS="-Wl,--as-needed"
-ENV CMAKE_CXX_FLAGS="--fPIC"
-ENV CMAKE_C_FLAGS="--fPIC"
+
+# (Optional) CMake compiler flags for finer control
+# These ensure position-independent code and additional compiler warnings
+ENV CMAKE_C_FLAGS="${CFLAGS}"
+ENV CMAKE_CXX_FLAGS="${CXXFLAGS}"
 
 WORKDIR /app
 
