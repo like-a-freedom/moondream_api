@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y \
     g++ \
     git \
     libprotobuf-dev \
-    # protobuf-compiler \
-    # python3-dev \
+    protobuf-compiler \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set build environment variables
