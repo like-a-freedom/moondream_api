@@ -125,7 +125,7 @@ class MoondreamVisionService:
 
             execution_time = end_time - start_time
             print(f"Query execution time: {execution_time:.2f} seconds")
-            return str(answer)
+            return str(answer).strip()
         except Exception as e:
             raise ImageAnalysisError(f"Error analyzing image: {e}")
 
