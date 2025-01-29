@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y \
     libopenblas-dev \
     liblapack-dev \
     python3-dev \
-    # protobuf-compiler libprotoc-dev
+    protobuf-compiler \
+    libprotoc-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
