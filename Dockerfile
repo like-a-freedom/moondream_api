@@ -1,13 +1,4 @@
-FROM --platform=$BUILDPLATFORM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
-
-# Set cross-compilation environment
-ARG TARGETPLATFORM
-RUN case "${TARGETPLATFORM}" in \
-    "linux/amd64") echo x86_64-linux-gnu > /etc/arch ;; \
-    "linux/arm64") echo aarch64-linux-gnu > /etc/arch ;; \
-    *) exit 1 ;; \
-    esac
-
+FROM --platform=$TARGETPLATFORM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -16,7 +7,6 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     git \
-    crossbuild-essential-arm64 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
