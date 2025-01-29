@@ -20,18 +20,25 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CMAKE_BUILD_TYPE=Release
-ENV CMAKE_ARGS="-DONNX_WERROR=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON"
+ENV CMAKE_ARGS="-DONNX_WERROR=OFF -DONNX_USE_PROTOBUF_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_POLICY_DEFAULT_CMP0148=NEW"
+# Compiler settings
 ENV CC=gcc
 ENV CXX=g++
-ENV CFLAGS="-march=native"
-ENV CXXFLAGS="-march=native"
+ENV CFLAGS="-fPIC -march=native"
+ENV CXXFLAGS="-fPIC -march=native"
+ENV ONNX_ML=1
+# Explicitly disable SSE and AES instructions
+# ENV CFLAGS="${CFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
+# ENV CXXFLAGS="${CXXFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
+
+# Protobuf and linking settings
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+
 # ENV CFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
 # ENV CXXFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
 # Disable x86 specific optimizations
-ENV CPPFLAGS="-DCPUINFO_ARCH_ARM64"
-# Explicitly disable SSE and AES instructions
-ENV CFLAGS="${CFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
-ENV CXXFLAGS="${CXXFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
+# ENV CPPFLAGS="-DCPUINFO_ARCH_ARM64"
+
 
 WORKDIR /app
 
