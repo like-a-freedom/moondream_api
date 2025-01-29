@@ -17,24 +17,16 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
-ENV DEBIAN_FRONTEND=noninteractive
-ENV CMAKE_BUILD_TYPE=Release
-ENV CMAKE_ARGS="-DONNX_WERROR=OFF -DONNX_USE_PROTOBUF_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_POLICY_DEFAULT_CMP0148=NEW"
-# Compiler settings
-ENV CC=gcc
-ENV CXX=g++
-ENV CFLAGS="-fPIC -march=native"
-ENV CXXFLAGS="-fPIC -march=native"
-ENV ONNX_ML=1
-# Explicitly disable SSE and AES instructions
-# ENV CFLAGS="${CFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
-# ENV CXXFLAGS="${CXXFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
+# Fix for ARM64 compilation issues
+ARG TARGETARCH
+ENV CMAKE_ARGS="-DONNX_USE_FULL_PROTOBUF=OFF"
+ENV ONNX_USE_LITE_PROTO=ON
 
-# ENV CFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
-# ENV CXXFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
-# Disable x86 specific optimizations
-# ENV CPPFLAGS="-DCPUINFO_ARCH_ARM64"
+# Disable unsupported flags on ARM64
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+    echo "Using ARM64, adjusting compiler flags"; \
+    export CXXFLAGS="-mcpu=generic"; \
+    fi
 
 
 WORKDIR /app
@@ -43,13 +35,13 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev
+    CXXFLAGS="$CXXFLAGS" uv sync --frozen --no-install-project --no-dev
 
 # Copy the rest of the application
 COPY . /app
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    CXXFLAGS="$CXXFLAGS" uv sync --frozen --no-dev
 
 FROM python:3.13-slim-bookworm
 
