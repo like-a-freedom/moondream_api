@@ -7,6 +7,7 @@ import requests
 from fastapi import APIRouter, HTTPException
 from PIL import Image
 
+from ollama_model_mocks import MOCK_MOONDREAM_MODEL_DATA
 from config import settings
 from exceptions import VisionServiceException
 from schemas import (
@@ -17,6 +18,8 @@ from schemas import (
     OllamaMessage,
     OllamaRequest,
     OllamaResponse,
+    OllamaModelShowResponse,
+    OllamaShowModelRequest,
 )
 from vision_service import MoondreamVisionService
 
@@ -146,6 +149,13 @@ async def ollama_chat_completion(request: OllamaRequest):
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@ollama_router.post("/api/show", response_model=OllamaModelShowResponse)
+async def ollama_show_model(request: OllamaShowModelRequest):
+    if request.model not in ("moondream" or "moondream2"):
+        raise HTTPException(status_code=404, detail=f"Model {request.model} not found")
+    return MOCK_MOONDREAM_MODEL_DATA
 
 
 @default_router.get("/health")
