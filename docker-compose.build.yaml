@@ -3,7 +3,7 @@ services:
     build: .
     container_name: moondream_api
     environment:
-      - MODEL_NAME="moondream-0_5b-int8" # also moondream-2b-int8 available
+      - MODEL_NAME=moondream-0_5b-int8 # also moondream-2b-int8 available
       - MOONDREAM_500M_URL='https://huggingface.co/vikhyatk/moondream2/resolve/9dddae84d54db4ac56fe37817aeaeb502ed083e2/moondream-0_5b-int8.mf.gz?download=true'
       - MOONDREAM_2B_URL='https://huggingface.co/vikhyatk/moondream2/resolve/9dddae84d54db4ac56fe37817aeaeb502ed083e2/moondream-2b-int8.mf.gz?download=true'
     ports:

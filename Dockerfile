@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     libopenblas-dev \
     liblapack-dev \
     python3-dev \
+    # protobuf-compiler libprotoc-dev
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
@@ -19,8 +20,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV CMAKE_BUILD_TYPE=Release
 ENV CC=gcc
 ENV CXX=g++
-ENV CFLAGS="-march=native"
-ENV CXXFLAGS="-march=native"
+# ENV CFLAGS="-march=native"
+# ENV CXXFLAGS="-march=native"
+ENV CFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
+ENV CXXFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
+# Disable x86 specific optimizations
+ENV CPPFLAGS="-DCPUINFO_ARCH_ARM64"
+# Explicitly disable SSE and AES instructions
+ENV CFLAGS="${CFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
+ENV CXXFLAGS="${CXXFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
 
 WORKDIR /app
 

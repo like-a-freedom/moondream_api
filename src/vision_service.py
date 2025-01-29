@@ -17,9 +17,9 @@ from exceptions import ImageAnalysisError, ModelDownloadError, ModelLoadError
 class MoondreamVisionService:
     def __init__(self, base_dir=settings.BASE_MODEL_DIR):
         self.base_dir = os.path.abspath(base_dir)
-        os.makedirs(self.base_dir, exist_ok=True)
-
         self.model_name = settings.MODEL_NAME
+
+        os.makedirs(self.base_dir, exist_ok=True)
 
         try:
             self.model = self._load_model()
