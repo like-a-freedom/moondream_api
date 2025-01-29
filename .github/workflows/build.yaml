@@ -46,7 +46,7 @@ jobs:
         uses: docker/metadata-action@master
         with:
           images: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/smolvlm-api
+            ${{ secrets.DOCKERHUB_USERNAME }}/moondream_api
             ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=branch
