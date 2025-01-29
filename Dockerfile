@@ -9,26 +9,29 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Set build environment variables
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_PREFER_BINARY=1
-# Limit memory usage and add safety flags
-ENV MAKEFLAGS="-j2"
-ENV CMAKE_BUILD_PARALLEL_LEVEL=2
+ENV PIP_ONLY_BINARY=:all:
+ENV MAKEFLAGS="-j1"
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 ENV ONNX_ML=1
 ENV ONNX_BUILD_TESTS=OFF
-ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DFETCHCONTENT_QUIET=OFF -DCMAKE_BUILD_TYPE=Release"
-ENV CFLAGS="-O2"
-ENV CXXFLAGS="-O2"
+ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_FULLY_DISCONNECTED=ON"
+ENV CFLAGS="-O2 -pipe"
+ENV CXXFLAGS="-O2 -pipe"
+ENV LDFLAGS="-Wl,--as-needed"
 
 WORKDIR /app
 
 # Copy only the files needed for dependency installation
 COPY pyproject.toml uv.lock ./
 
-# First install wheels without building
+# Install dependencies in two phases
 RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --no-cache-dir protobuf onnx && \
     uv sync --frozen --no-install-project --no-dev
 
 # Copy the rest of the application
