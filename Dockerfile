@@ -13,7 +13,12 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_PREFER_BINARY=1
-ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DDOWNLOAD_EXTRACT_TIMESTAMP=ON -Wno-dev -DCMAKE_POLICY_DEFAULT_CMP0148=NEW -DCMAKE_POLICY_DEFAULT_CMP0135=NEW"
+# Limit memory usage and add safety flags
+ENV MAKEFLAGS="-j2"
+ENV CMAKE_BUILD_PARALLEL_LEVEL=2
+ENV ONNX_ML=1
+ENV ONNX_BUILD_TESTS=OFF
+ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DFETCHCONTENT_QUIET=OFF -DCMAKE_BUILD_TYPE=Release"
 ENV CFLAGS="-O2"
 ENV CXXFLAGS="-O2"
 
@@ -22,8 +27,12 @@ WORKDIR /app
 # Copy only the files needed for dependency installation
 COPY pyproject.toml uv.lock ./
 
+# First install wheels without building
 RUN --mount=type=cache,target=/root/.cache/uv \
-    CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF" \
+    uv sync --frozen --no-install-project --no-dev --wheels-only
+
+# Then build remaining packages
+RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # Copy the rest of the application
