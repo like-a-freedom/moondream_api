@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y \
     g++ \
     git \
     libprotobuf-dev \
-    protobuf-compiler \
-    python3-dev \
+    # protobuf-compiler \
+    # python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set build environment variables
@@ -22,7 +22,7 @@ ENV MAKEFLAGS="-j1"
 ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 ENV ONNX_ML=1
 ENV ONNX_BUILD_TESTS=OFF
-ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_FULLY_DISCONNECTED=ON"
+ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_FULLY_DISCONNECTED=ON"
 ENV CFLAGS="-O2 -pipe"
 ENV CXXFLAGS="-O2 -pipe"
 ENV LDFLAGS="-Wl,--as-needed"
