@@ -31,9 +31,6 @@ ENV ONNX_ML=1
 # ENV CFLAGS="${CFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
 # ENV CXXFLAGS="${CXXFLAGS} -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-aes"
 
-# Protobuf and linking settings
-ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
-
 # ENV CFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
 # ENV CXXFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
 # Disable x86 specific optimizations
