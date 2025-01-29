@@ -24,12 +24,12 @@ ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 # ONNX specific settings
 ENV ONNX_ML=1
 ENV ONNX_BUILD_TESTS=OFF
-ENV ONNX_USE_PROTOBUF_SHARED_LIBS=OFF
+ENV ONNX_USE_PROTOBUF_SHARED_LIBS=ON
 
 # CMake-specific flags
 ENV CMAKE_ARGS=" \
-    -DONNX_USE_PROTOBUF_SHARED_LIBS=OFF \
-    -DONNX_USE_LITE_PROTO=ON \
+    -DONNX_USE_PROTOBUF_SHARED_LIBS=ON \
+    -DONNX_USE_LITE_PROTO=OFF \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DFETCHCONTENT_FULLY_DISCONNECTED=ON \
@@ -40,7 +40,7 @@ ENV CMAKE_ARGS=" \
 # Compiler optimization and position-independent code
 ENV CFLAGS="-O3 -fPIC"
 ENV CXXFLAGS="-O3 -fPIC"
-ENV LDFLAGS="-Wl,--no-as-needed -lprotobuf"
+ENV LDFLAGS="-Wl,--no-as-needed -Wl,-Bsymbolic -lprotobuf"
 
 # Linker flags
 # ENV LDFLAGS="-Wl,--as-needed"
