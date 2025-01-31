@@ -16,10 +16,12 @@ from schemas import (
     ChatCompletionResponse,
     ChatMessage,
     OllamaMessage,
-    OllamaRequest,
-    OllamaResponse,
+    OllamaChatRequest,
+    OllamaChatResponse,
     OllamaModelShowResponse,
     OllamaShowModelRequest,
+    OllamaGenerateRequest,
+    OllamaGenerateResponse,
 )
 from vision_service import MoondreamVisionService
 
@@ -92,8 +94,8 @@ async def chat_completion(request: ChatCompletionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@ollama_router.post("/api/chat", response_model=OllamaResponse)
-async def ollama_chat_completion(request: OllamaRequest):
+@ollama_router.post("/api/chat", response_model=OllamaChatResponse)
+async def ollama_chat_completion(request: OllamaChatRequest):
     try:
         last_message = request.messages[-1]
         image_data = None
@@ -138,11 +140,65 @@ async def ollama_chat_completion(request: OllamaRequest):
         # Process image and generate response
         answer = vision_service.analyze_image(image, prompt)
 
-        return OllamaResponse(
+        return OllamaChatResponse(
             model=request.model or settings.MODEL_NAME,
             created_at=datetime.now(timezone.utc).isoformat(),
             message=OllamaMessage(role="assistant", content=answer),
             done=True,
+        )
+
+    except VisionServiceException as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@ollama_router.post("/api/generate", response_model=OllamaGenerateResponse)
+async def generate(request: OllamaGenerateRequest):
+    try:
+        start_time = time.time_ns()
+        load_start = time.time_ns()
+
+        # Process the prompt
+        if "<image>" in request.prompt:
+            # Extract base64 image if present
+            import re
+
+            image_match = re.search(r"<image>(.*?)</image>", request.prompt)
+            if image_match:
+                image_data = image_match.group(1)
+                # Remove image data from prompt
+                prompt = re.sub(r"<image>.*?</image>", "", request.prompt).strip()
+
+                # Process image
+                image_bytes = base64.b64decode(image_data)
+                image = Image.open(io.BytesIO(image_bytes))
+            else:
+                raise HTTPException(status_code=400, detail="Invalid image format")
+        else:
+            raise HTTPException(status_code=400, detail="No image provided")
+
+        load_duration = time.time_ns() - load_start
+
+        # Process image and generate response
+        prompt_eval_start = time.time_ns()
+        answer = vision_service.analyze_image(image, prompt)
+        prompt_eval_duration = time.time_ns() - prompt_eval_start
+
+        total_duration = time.time_ns() - start_time
+
+        return OllamaGenerateResponse(
+            model=request.model or settings.MODEL_NAME,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            response=answer,
+            done=True,
+            context=[],
+            total_duration=total_duration,
+            load_duration=load_duration,
+            prompt_eval_count=len(prompt),
+            prompt_eval_duration=prompt_eval_duration,
+            eval_count=len(answer),
+            eval_duration=total_duration - load_duration - prompt_eval_duration,
         )
 
     except VisionServiceException as e:
