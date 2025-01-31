@@ -86,3 +86,4 @@ class OllamaModelShowResponse(BaseModel):
     model_info: Dict[str, Any]
     projector_info: Dict[str, Any]
     modified_at: str
+
