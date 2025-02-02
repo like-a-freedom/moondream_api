@@ -13,7 +13,7 @@ RUN apt-get install -y \
     python3-dev \
     libabsl-dev
 
-RUN apt-get autoclean
+# RUN apt-get autoclean
 # \
 # protobuf-compiler \
 # libprotobuf-dev
