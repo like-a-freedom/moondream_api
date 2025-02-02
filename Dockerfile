@@ -84,7 +84,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 #     # -DPYTHON_EXECUTABLE=/usr/local/bin/python3.13 \
 #     -Wno-dev"
 
-ENV CMAKE_ARGS='-DCMAKE INSTALL_PREFIX=/usr/local -DCMAKE_INSTALL_RPATH="/usr/local/lib:/usr/lib:/usr/local/lib"'
+# ENV CMAKE_ARGS='-DCMAKE INSTALL_PREFIX=/usr/local -DCMAKE_INSTALL_RPATH="/usr/local/lib:/usr/lib:/usr/local/lib"'
 
 # # Additional environment variables for ONNX build
 # ENV ONNX_ML=1
