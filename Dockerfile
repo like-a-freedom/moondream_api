@@ -12,14 +12,14 @@ RUN apt-get install -y \
     git
 
 #29.3
-# ARG PROTOBUF_VERSION=5.29.3 
-# RUN git clone --branch v${PROTOBUF_VERSION} --recurse-submodules https://github.com/protocolbuffers/protobuf && \
-#     cd protobuf && \
-#     cmake -Dprotobuf_BUILD_TESTS=OFF \
-#     -Dprotobuf_BUILD_SHARED_LIBS=ON \
-#     -B build && \
-#     cmake --build build --parallel $(nproc) && \
-#     cmake --install build
+ARG PROTOBUF_VERSION=5.29.3 
+RUN git clone --branch v${PROTOBUF_VERSION} --recurse-submodules https://github.com/protocolbuffers/protobuf && \
+    cd protobuf && \
+    cmake -Dprotobuf_BUILD_TESTS=OFF \
+    -Dprotobuf_BUILD_SHARED_LIBS=ON \
+    -B build && \
+    cmake --build build --parallel $(nproc) && \
+    cmake --install build
 
 # Set comprehensive build environment variables
 ENV UV_COMPILE_BYTECODE=1
