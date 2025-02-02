@@ -1,7 +1,11 @@
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 
+# It seems like an issue related to Protobuf. If you install Protobuf from conda or apt-get, please set export CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=ON" before building ONNX. By contrast, if you install Protobuf from source, please set export CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF" (it is default). See more explanation.
+
+
+
 # Install comprehensive build dependencies
-RUN apt-get update 
+RUN apt-get update
 RUN apt-get install -y \
     # build-essential \
     cmake \
@@ -22,6 +26,7 @@ ENV CXXFLAGS=-O0
 ENV CC=/usr/bin/clang
 ENV CXX=/usr/bin/clang++
 ENV ULIMIT_STACK=1048576
+ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON"
 
 #29.3
 #5.29.3
