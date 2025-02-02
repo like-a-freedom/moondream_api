@@ -9,10 +9,12 @@ RUN apt-get install -y \
     autoconf \
     automake \
     g++ \
-    git
+    git \
+    python3-dev
 
 #29.3
-ARG PROTOBUF_VERSION=5.29.3 
+#5.29.3
+ARG PROTOBUF_VERSION=22.3
 RUN git clone --branch v${PROTOBUF_VERSION} --recurse-submodules https://github.com/protocolbuffers/protobuf && \
     cd protobuf && \
     cmake -Dprotobuf_BUILD_TESTS=OFF \
