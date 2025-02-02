@@ -10,7 +10,8 @@ RUN apt-get install -y \
     automake \
     g++ \
     git \
-    python3-dev
+    python3-dev \
+    libabsl-dev
 # \
 # protobuf-compiler \
 # libprotobuf-dev
@@ -42,6 +43,8 @@ RUN git clone https://github.com/pybind/pybind11.git \
     && cd / \
     && rm -rf /pybind11 \
     && pip install pybind11
+
+RUN ldconfig
 
 # Set comprehensive build environment variables
 ENV UV_COMPILE_BYTECODE=1
