@@ -15,7 +15,7 @@ RUN apt-get install -y \
     automake \
     g++ \
     git \
-    # python3-dev \
+    python3-dev \
     libabsl-dev
 # protobuf-compiler \
 # libprotobuf-dev
@@ -34,7 +34,7 @@ ARG PROTOBUF_VERSION=5.29.3
 RUN git clone --branch v${PROTOBUF_VERSION} --recurse-submodules https://github.com/protocolbuffers/protobuf && \
     cd protobuf && \
     cmake -Dprotobuf_BUILD_TESTS=OFF \
-    -Dprotobuf_BUILD_SHARED_LIBS=ON \
+    -Dprotobuf_BUILD_SHARED_LIBS=OFF \
     -B build && \
     cmake --build build --parallel $(nproc) && \
     cmake --install build
