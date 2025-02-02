@@ -11,6 +11,9 @@ RUN apt-get install -y \
     g++ \
     git \
     python3-dev
+# \
+# protobuf-compiler \
+# libprotobuf-dev
 
 #29.3
 #5.29.3
@@ -22,6 +25,23 @@ RUN git clone --branch v${PROTOBUF_VERSION} --recurse-submodules https://github.
     -B build && \
     cmake --build build --parallel $(nproc) && \
     cmake --install build
+
+RUN git clone https://github.com/pybind/pybind11.git \
+    && cd pybind11 \
+    && git checkout v2.13.6 \
+    && mkdir build \
+    && cd build \
+    && cmake -DCMAKE_BUILD_TYPE=Release \
+    -DPYBIND11_PYTHON_VERSION=3.13 \
+    -DPYBIND11_TEST=OFF \
+    -DPython_EXECUTABLE=$(which python3) \
+    -DPython_INCLUDE_DIRS=/usr/local/include/python3.13 \
+    -DPython_LIBRARIES=/usr/local/lib/libpython3.13.so \
+    .. \
+    && make -j1 install \
+    && cd / \
+    && rm -rf /pybind11 \
+    && pip install pybind11
 
 # Set comprehensive build environment variables
 ENV UV_COMPILE_BYTECODE=1
