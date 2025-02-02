@@ -11,40 +11,39 @@ RUN apt-get install -y \
     g++ \
     git \
     python3-dev \
-    libabsl-dev
+    libabsl-dev \
+    protobuf-compiler \
+    libprotobuf-dev
 
 # RUN apt-get autoclean
-# \
-# protobuf-compiler \
-# libprotobuf-dev
 
 #29.3
 #5.29.3
-ARG PROTOBUF_VERSION=22.3
-RUN git clone --branch v${PROTOBUF_VERSION} --recurse-submodules https://github.com/protocolbuffers/protobuf && \
-    cd protobuf && \
-    cmake -Dprotobuf_BUILD_TESTS=OFF \
-    -Dprotobuf_BUILD_SHARED_LIBS=ON \
-    -B build && \
-    cmake --build build --parallel $(nproc) && \
-    cmake --install build
+# ARG PROTOBUF_VERSION=22.3
+# RUN git clone --branch v${PROTOBUF_VERSION} --recurse-submodules https://github.com/protocolbuffers/protobuf && \
+#     cd protobuf && \
+#     cmake -Dprotobuf_BUILD_TESTS=OFF \
+#     -Dprotobuf_BUILD_SHARED_LIBS=ON \
+#     -B build && \
+#     cmake --build build --parallel $(nproc) && \
+#     cmake --install build
 
-RUN git clone https://github.com/pybind/pybind11.git \
-    && cd pybind11 \
-    && git checkout v2.13.6 \
-    && mkdir build \
-    && cd build \
-    && cmake -DCMAKE_BUILD_TYPE=Release \
-    -DPYBIND11_PYTHON_VERSION=3.13 \
-    -DPYBIND11_TEST=OFF \
-    -DPython_EXECUTABLE=$(which python3) \
-    -DPython_INCLUDE_DIRS=/usr/local/include/python3.13 \
-    -DPython_LIBRARIES=/usr/local/lib/libpython3.13.so \
-    .. \
-    && make -j1 install \
-    && cd / \
-    && rm -rf /pybind11 \
-    && pip install pybind11
+# RUN git clone https://github.com/pybind/pybind11.git \
+#     && cd pybind11 \
+#     && git checkout v2.13.6 \
+#     && mkdir build \
+#     && cd build \
+#     && cmake -DCMAKE_BUILD_TYPE=Release \
+#     -DPYBIND11_PYTHON_VERSION=3.13 \
+#     -DPYBIND11_TEST=OFF \
+#     -DPython_EXECUTABLE=$(which python3) \
+#     -DPython_INCLUDE_DIRS=/usr/local/include/python3.13 \
+#     -DPython_LIBRARIES=/usr/local/lib/libpython3.13.so \
+#     .. \
+#     && make -j1 install \
+#     && cd / \
+#     && rm -rf /pybind11 \
+#     && pip install pybind11
 
 RUN ldconfig
 ENV LD_LIBRARY_PATH=/usr/local/lib
