@@ -15,7 +15,7 @@ RUN apt-get install -y \
     automake \
     g++ \
     git \
-    python3-dev \
+    # python3-dev \
     libabsl-dev
 # protobuf-compiler \
 # libprotobuf-dev
@@ -23,10 +23,10 @@ RUN apt-get install -y \
 # RUN apt-get autoclean
 ENV CFLAGS=-O0
 ENV CXXFLAGS=-O0
-ENV CC=/usr/bin/clang
-ENV CXX=/usr/bin/clang++
-ENV ULIMIT_STACK=1048576
-ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON"
+# ENV CC=/usr/bin/clang
+# ENV CXX=/usr/bin/clang++
+ENV ULIMIT_STACK=4048576
+ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++"
 
 #29.3
 #22.3
