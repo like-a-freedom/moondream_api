@@ -11,8 +11,9 @@ RUN apt-get install -y \
     g++ \
     git \
     python3-dev \
-    libabsl-dev \
-    apt-get autoclean
+    libabsl-dev
+
+RUN apt-get autoclean
 # \
 # protobuf-compiler \
 # libprotobuf-dev
