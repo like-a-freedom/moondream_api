@@ -123,6 +123,7 @@ class OllamaGenerateRequest(BaseModel):
     prompt: str
     stream: Optional[bool] = False
     options: Optional[OllamaGenerateOptions] = OllamaGenerateOptions()
+    images: Optional[List[str]]
 
 
 class OllamaGenerateResponse(BaseModel):

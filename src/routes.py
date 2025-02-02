@@ -159,32 +159,30 @@ async def generate(request: OllamaGenerateRequest):
         start_time = time.time_ns()
         load_start = time.time_ns()
 
-        # Process the prompt
-        if "<image>" in request.prompt:
-            # Extract base64 image if present
-            import re
+        # Process the prompt and images
+        prompt = request.prompt
+        processed_images = []
 
-            image_match = re.search(r"<image>(.*?)</image>", request.prompt)
-            if image_match:
-                image_data = image_match.group(1)
-                # Remove image data from prompt
-                prompt = re.sub(r"<image>.*?</image>", "", request.prompt).strip()
-
-                # Process image
-                image_bytes = base64.b64decode(image_data)
-                image = Image.open(io.BytesIO(image_bytes))
-            else:
-                raise HTTPException(status_code=400, detail="Invalid image format")
-        else:
-            raise HTTPException(status_code=400, detail="No image provided")
+        if request.images:
+            for image_data in request.images:
+                try:
+                    image_bytes = base64.b64decode(image_data)
+                    image = Image.open(io.BytesIO(image_bytes))
+                    processed_images.append(image)
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=400, detail=f"Invalid image format: {str(e)}"
+                    )
 
         load_duration = time.time_ns() - load_start
 
-        # Process image and generate response
         prompt_eval_start = time.time_ns()
-        answer = vision_service.analyze_image(image, prompt)
-        prompt_eval_duration = time.time_ns() - prompt_eval_start
+        answers = []
+        for img in processed_images:
+            answer = vision_service.analyze_image(img, prompt)
+            answers.append(answer)
 
+        prompt_eval_duration = time.time_ns() - prompt_eval_start
         total_duration = time.time_ns() - start_time
 
         return OllamaGenerateResponse(
