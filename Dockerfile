@@ -11,7 +11,8 @@ RUN apt-get install -y \
     g++ \
     git \
     python3-dev \
-    libabsl-dev
+    libabsl-dev \
+    apt-get autoclean
 # \
 # protobuf-compiler \
 # libprotobuf-dev
@@ -45,6 +46,7 @@ RUN git clone https://github.com/pybind/pybind11.git \
     && pip install pybind11
 
 RUN ldconfig
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # Set comprehensive build environment variables
 ENV UV_COMPILE_BYTECODE=1
@@ -80,6 +82,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 #     # -DPYTHON_INCLUDE_DIR=/usr/include/python3.13 \
 #     # -DPYTHON_EXECUTABLE=/usr/local/bin/python3.13 \
 #     -Wno-dev"
+
+ENV CMAKE_ARGS="-DCMAKE_INSTALL_RPATH='$ORIGIN'"
 
 # # Additional environment variables for ONNX build
 # ENV ONNX_ML=1
