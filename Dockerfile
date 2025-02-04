@@ -7,7 +7,7 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 # Install comprehensive build dependencies
 RUN apt-get update
 RUN apt-get install -y \
-    # build-essential \
+    build-essential \
     cmake \
     clang \
     gcc \
@@ -23,10 +23,19 @@ RUN apt-get install -y \
 # RUN apt-get autoclean
 ENV CFLAGS=-O0
 ENV CXXFLAGS=-O0
+
 # ENV CC=/usr/bin/clang
 # ENV CXX=/usr/bin/clang++
+
+# Compiler and build flags for position-independent code
+ENV MAKEFLAGS="-j1"
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1
+
 ENV ULIMIT_STACK=4048576
 ENV CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -Dfail-on-missing=ON"
+# # Additional environment variables for ONNX build
+ENV ONNX_ML=1
+ENV ONNX_BUILD_TESTS=OFF
 
 #29.3
 #22.3
@@ -64,9 +73,7 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Compiler and build flags for position-independent code
-# ENV MAKEFLAGS="-j1"
-# ENV CMAKE_BUILD_PARALLEL_LEVEL=1
+
 
 # # Set architecture-specific compiler flags
 # ARG TARGETARCH
@@ -79,7 +86,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 #     fi
 
 # # Comprehensive CMake configuration
-# ENV CMAKE_ARGS="-DCMAKE_POSITION_INDEPENDET_CODE=ON \
+# ENV CMAKE_ARGS="-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
 #     -DONNX_USE_PROTOBUF_SHARED_LIBS=ON \
 #     -DONNX_USE_LITE_PROTO=OFF \
 #     -DCMAKE_BUILD_TYPE=Release \
@@ -96,9 +103,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # ENV CMAKE_ARGS='-DCMAKE INSTALL_PREFIX=/usr/local -DCMAKE_INSTALL_RPATH="/usr/local/lib:/usr/lib:/usr/local/lib"'
 
-# # Additional environment variables for ONNX build
-# ENV ONNX_ML=1
-# ENV ONNX_BUILD_TESTS=OFF
+
 
 WORKDIR /app
 
