@@ -1,5 +1,14 @@
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    clang \
+    gcc \
+    autoconf \
+    automake \
+    g++
+
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
