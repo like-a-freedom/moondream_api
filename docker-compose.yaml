@@ -9,7 +9,7 @@ services:
       - MOONDREAM_500M_URL=https://huggingface.co/vikhyatk/moondream2/resolve/9dddae84d54db4ac56fe37817aeaeb502ed083e2/moondream-0_5b-int8.mf.gz?download=true
       - MOONDREAM_2B_URL=https://huggingface.co/vikhyatk/moondream2/resolve/9dddae84d54db4ac56fe37817aeaeb502ed083e2/moondream-2b-int8.mf.gz?download=true
     ports:
-      - "18000:8000"
+      - 18000:8000
     volumes:
       - ./model_cache:/app/model_cache
     healthcheck:
