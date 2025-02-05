@@ -1,6 +1,7 @@
 services:
   moondream-api:
     build: .
+    image: moondream-api:latest
     container_name: moondream_api
     restart: unless-stopped
     environment:
