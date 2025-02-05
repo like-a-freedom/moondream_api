@@ -13,7 +13,7 @@ The `moondream_api` project is designed to provide a lightweight and simple  Ope
 
 **Notes**: 
 
-1. First start, it will take some time to download the model and start the service (depends on your internet connection, need to download ~3+GB model).
+1. First start, it will take some time to download the model and start the service (depends on your internet connection, need to download ~600 MB for 500M model).
 2. In case if you're getting error like
 ```
 Traceback (most recent call last):
