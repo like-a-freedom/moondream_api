@@ -7,6 +7,7 @@ import requests
 from fastapi import APIRouter, HTTPException
 from PIL import Image
 
+from ollama_model_mocks import MOCK_MOONDREAM_MODEL_DATA
 from config import settings
 from exceptions import VisionServiceException
 from schemas import (
@@ -15,8 +16,12 @@ from schemas import (
     ChatCompletionResponse,
     ChatMessage,
     OllamaMessage,
-    OllamaRequest,
-    OllamaResponse,
+    OllamaChatRequest,
+    OllamaChatResponse,
+    OllamaModelShowResponse,
+    OllamaShowModelRequest,
+    OllamaGenerateRequest,
+    OllamaGenerateResponse,
 )
 from vision_service import MoondreamVisionService
 
@@ -89,8 +94,8 @@ async def chat_completion(request: ChatCompletionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@ollama_router.post("/api/chat", response_model=OllamaResponse)
-async def ollama_chat_completion(request: OllamaRequest):
+@ollama_router.post("/api/chat", response_model=OllamaChatResponse)
+async def ollama_chat_completion(request: OllamaChatRequest):
     try:
         last_message = request.messages[-1]
         image_data = None
@@ -135,7 +140,7 @@ async def ollama_chat_completion(request: OllamaRequest):
         # Process image and generate response
         answer = vision_service.analyze_image(image, prompt)
 
-        return OllamaResponse(
+        return OllamaChatResponse(
             model=request.model or settings.MODEL_NAME,
             created_at=datetime.now(timezone.utc).isoformat(),
             message=OllamaMessage(role="assistant", content=answer),
@@ -146,6 +151,65 @@ async def ollama_chat_completion(request: OllamaRequest):
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@ollama_router.post("/api/generate", response_model=OllamaGenerateResponse)
+async def generate(request: OllamaGenerateRequest):
+    try:
+        start_time = time.time_ns()
+        load_start = time.time_ns()
+
+        # Process the prompt and images
+        prompt = request.prompt
+        processed_images = []
+
+        if request.images:
+            for image_data in request.images:
+                try:
+                    image_bytes = base64.b64decode(image_data)
+                    image = Image.open(io.BytesIO(image_bytes))
+                    processed_images.append(image)
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=400, detail=f"Invalid image format: {str(e)}"
+                    )
+
+        load_duration = time.time_ns() - load_start
+
+        prompt_eval_start = time.time_ns()
+        answers = []
+        for img in processed_images:
+            answer = vision_service.analyze_image(img, prompt)
+            answers.append(answer)
+
+        prompt_eval_duration = time.time_ns() - prompt_eval_start
+        total_duration = time.time_ns() - start_time
+
+        return OllamaGenerateResponse(
+            model=request.model or settings.MODEL_NAME,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            response=answer,
+            done=True,
+            context=[],
+            total_duration=total_duration,
+            load_duration=load_duration,
+            prompt_eval_count=len(prompt),
+            prompt_eval_duration=prompt_eval_duration,
+            eval_count=len(answer),
+            eval_duration=total_duration - load_duration - prompt_eval_duration,
+        )
+
+    except VisionServiceException as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@ollama_router.post("/api/show", response_model=OllamaModelShowResponse)
+async def ollama_show_model(request: OllamaShowModelRequest):
+    if request.model not in ("moondream" or "moondream2"):
+        raise HTTPException(status_code=404, detail=f"Model {request.model} not found")
+    return MOCK_MOONDREAM_MODEL_DATA
 
 
 @default_router.get("/health")
