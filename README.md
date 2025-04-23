@@ -9,9 +9,17 @@ The `moondream_api` project is designed to provide a lightweight and simple  Ope
 1. Clone the repository or just download the `docker-compose.yml` file.
 2. Run the following command to start the service: `docker compose up -d`.
 3. The service will be available at `http://localhost:18000` by default.
-4. That's it! You can now start using the API.
+4. The service can work with local model and via Moondream cloud API. If you want to use Moondream cloud API, you need to set the `MOONDREAM_API_KEY` environment variable. Get the key on [Moondream](https://moondream.ai/c/cloud/api-keys) You can do this by running the following command:
 
-**Notes**: 
+   Set the environment variable in the `docker-compose.yml` file:
+   ```yaml
+   environment:
+     - MOONDREAM_MODE=api
+     - MOONDREAM_API_KEY=your_api_key
+   ```
+5. That's it! You can now start using the API.
+
+**Notes**:
 
 1. First start, it will take some time to download the model and start the service (depends on your internet connection, need to download ~600 MB for 500M model).
 2. In case if you're getting error like

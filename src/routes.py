@@ -23,12 +23,12 @@ from schemas import (
     OllamaGenerateRequest,
     OllamaGenerateResponse,
 )
-from vision_service import MoondreamVisionService
+from vision_service import get_vision_service
 
 openai_router = APIRouter()
 ollama_router = APIRouter()
 default_router = APIRouter()
-vision_service = MoondreamVisionService()
+vision_service = get_vision_service()
 
 
 @openai_router.post("/chat/completions", response_model=ChatCompletionResponse)

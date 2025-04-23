@@ -10,6 +10,11 @@ class Settings:
     MAX_IMAGE_SIZE: int = 2048  # Longest edge
     MOONDREAM_2B_URL: str = os.getenv("MOONDREAM_2B_URL", "")
     MOONDREAM_500M_URL: str = os.getenv("MOONDREAM_500M_URL", "")
+    MOONDREAM_MODE: str = os.getenv("MOONDREAM_MODE", "local")  # 'local' or 'api'
+    MOONDREAM_API_KEY: str = os.getenv(
+        "MOONDREAM_API_KEY",
+        "",
+    )
 
 
 settings = Settings()
