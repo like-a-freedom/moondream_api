@@ -57,9 +57,9 @@ The cloud profile strips CUDA packages after installation, keeping the image lea
 ### Build locally
 
 ```bash
-# Build and tag as latest
-MOONDREAM_API_KEY=test docker compose build
-MOONDREAM_API_KEY=test docker tag moondream-api:latest moondream-api:$(git rev-parse --short HEAD)
+# Build cloud image and tag
+MOONDREAM_API_KEY=test docker compose build moondream-api
+MOONDREAM_API_KEY=test docker tag ghcr.io/like-a-freedom/moondream_api:cloud moondream-api:$(git rev-parse --short HEAD)
 
 # Build NVIDIA variant
 MOONDREAM_API_KEY=test docker compose --profile local build

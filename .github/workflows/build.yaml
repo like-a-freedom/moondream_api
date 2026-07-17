@@ -63,7 +63,10 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ghcr.io/${{ github.repository }}:cloud
+            ${{ secrets.DOCKERHUB_USERNAME }}/moondream_api:cloud
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

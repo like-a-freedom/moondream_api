@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: moondream-api:latest
+    image: ghcr.io/like-a-freedom/moondream_api:cloud
     container_name: moondream_api
     restart: unless-stopped
     environment:
@@ -26,7 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.nvidia
-    image: moondream-api:local
+    image: ghcr.io/like-a-freedom/moondream_api:local
     container_name: moondream_api_local
     restart: unless-stopped
     environment:
