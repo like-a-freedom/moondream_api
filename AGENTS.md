@@ -42,7 +42,7 @@ Service available at `localhost:18001`. Requires NVIDIA GPU with CUDA 12.
 | Profile | Dockerfile | Base image | Size | Use case |
 |---|---|---|---|---|
 | `cloud` (default) | `Dockerfile` | `python:3.13-slim` | ~200 MB | Cloud API (no GPU) |
-| `local` | `Dockerfile.nvidia` | `nvidia/cuda:12.8-runtime` | ~5 GB | Local Photon (NVIDIA GPU) |
+| `local` | `Dockerfile.nvidia` | `nvidia/cuda:12.8.1-runtime-ubuntu24.04` | ~5 GB | Local Photon (NVIDIA GPU) |
 
 The cloud image strips CUDA/PyTorch packages after install, keeping it lean for edge devices.
 
