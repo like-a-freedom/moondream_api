@@ -37,4 +37,4 @@ ENV PYTHONPATH=/app
 RUN useradd -m appuser && chown -R appuser:appuser /app
 
 USER appuser
-CMD ["uv", "run", "fastapi", "run", "./src/api.py", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python3", "-m", "fastapi", "run", "./src/api.py", "--host", "0.0.0.0", "--port", "8000"]
