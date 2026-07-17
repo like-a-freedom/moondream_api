@@ -5,65 +5,24 @@ ENV UV_LINK_MODE=copy
 
 WORKDIR /app
 
+# Cloud-only build — skip kestrel (the Photon engine) and its CUDA/PyTorch
+# baggage (~2 GB). Moondream's CloudVL only needs Pillow at runtime.
 COPY pyproject.toml uv.lock ./
 
-# The cloud build overrides kestrel-kernels with a no-op version so that
-# CUDA/nvidia packages (~2 GB) are never downloaded. Local (Photon) builds
-# use the real kestrel-kernels for GPU inference.
-ARG MOONDREAM_FLAVOR=cloud
-RUN if [ "$MOONDREAM_FLAVOR" = "cloud" ]; then \
-      echo "Configuring for cloud-only build" \
-      && echo '{"kestrel-kernels": {"version": "0.0.0"}}' > /dev/null; \
-    fi
-
+# Install moondream WITHOUT its kestrel dependency (--no-deps).
+# Then install the remaining runtime deps. kestrel is only needed for
+# local Photon inference (see Dockerfile.nvidia).
 RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ "$MOONDREAM_FLAVOR" = "cloud" ]; then \
-      uv sync --frozen --no-install-project --no-dev \
-        --no-install-package kestrel-kernels \
-        --no-install-package kestrel-native \
-        --no-install-package nvidia-cublas \
-        --no-install-package nvidia-cuda-cupti \
-        --no-install-package nvidia-cuda-nvrtc \
-        --no-install-package nvidia-cuda-runtime \
-        --no-install-package nvidia-cudnn-cu13 \
-        --no-install-package nvidia-cufft \
-        --no-install-package nvidia-curand \
-        --no-install-package nvidia-cusparse \
-        --no-install-package nvidia-cusparselt-cu13 \
-        --no-install-package nvidia-nccl-cu13 \
-        --no-install-package nvidia-nvjitlink \
-        --no-install-package triton \
-        --no-install-package sympy \
-        --no-install-package networkx \
-        --no-install-package mpmath; \
-    else \
-      uv sync --frozen --no-install-project --no-dev; \
-    fi
+    uv venv && \
+    uv pip install moondream --no-deps && \
+    uv pip install pillow fastapi[standard] httpx psutil
 
+# Copy the rest of the application
 COPY . /app
 
+# Install the project itself (uses the existing .venv, no deps resolved)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ "$MOONDREAM_FLAVOR" = "cloud" ]; then \
-      uv sync --frozen --no-dev \
-        --no-install-package kestrel-kernels \
-        --no-install-package nvidia-cublas \
-        --no-install-package nvidia-cuda-cupti \
-        --no-install-package nvidia-cuda-nvrtc \
-        --no-install-package nvidia-cuda-runtime \
-        --no-install-package nvidia-cudnn-cu13 \
-        --no-install-package nvidia-cufft \
-        --no-install-package nvidia-curand \
-        --no-install-package nvidia-cusparse \
-        --no-install-package nvidia-cusparselt-cu13 \
-        --no-install-package nvidia-nccl-cu13 \
-        --no-install-package nvidia-nvjitlink \
-        --no-install-package triton \
-        --no-install-package sympy \
-        --no-install-package networkx \
-        --no-install-package mpmath; \
-    else \
-      uv sync --frozen --no-dev; \
-    fi
+    uv pip install -e . --no-deps
 
 FROM python:3.13-slim-bookworm
 

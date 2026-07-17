@@ -54,16 +54,31 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
 
-      - name: Build and push
+      - name: Build and push (cloud — multi-arch)
         uses: docker/build-push-action@master
         with:
           context: .
-          platforms: linux/amd64
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            BUILDPLATFORM=${{ matrix.platform }}
+
+      - name: Build and push (local — NVIDIA, amd64 only)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        uses: docker/build-push-action@master
+        with:
+          context: .
+          file: Dockerfile.nvidia
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:local
+            ${{ secrets.DOCKERHUB_USERNAME }}/moondream_api:local
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

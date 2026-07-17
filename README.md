@@ -58,11 +58,11 @@ The cloud profile strips CUDA packages after installation, keeping the image lea
 
 ```bash
 # Build and tag as latest
-docker compose build
-docker tag moondream-api:latest moondream-api:$(git rev-parse --short HEAD)
+MOONDREAM_API_KEY=test docker compose build
+MOONDREAM_API_KEY=test docker tag moondream-api:latest moondream-api:$(git rev-parse --short HEAD)
 
 # Build NVIDIA variant
-docker compose --profile local build
+MOONDREAM_API_KEY=test docker compose --profile local build
 ```
 
 ### Local (Python 3.13+)

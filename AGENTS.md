@@ -60,9 +60,9 @@ docker compose --profile local up -d --build
 |---|---|
 | Install deps | `uv sync` |
 | Run locally | `uv run fastapi run ./src/api.py --host 0.0.0.0 --port 8000` |
-| Run via Docker | `docker compose up -d` |
-| Build cloud image | `docker compose up -d --build` |
-| Build local (NVIDIA) image | `docker compose --profile local up -d --build` |
+| Run via Docker | `MOONDREAM_API_KEY=your-key docker compose up -d` |
+| Build cloud image | `MOONDREAM_API_KEY=your-key docker compose up -d --build` |
+| Build local (NVIDIA) image | `MOONDREAM_API_KEY=your-key docker compose --profile local up -d --build` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type check | `uv run ty check src/` |
@@ -194,7 +194,7 @@ Before any commit or PR:
 - Zero formatting issues (`uv run ruff format .`)
 - Zero type errors (`uv run ty check src/`)
 - All tests pass
-- Cloud Docker image builds successfully (`docker compose up -d --build`)
+- Cloud Docker image builds successfully (`MOONDREAM_API_KEY=test docker compose up -d --build`)
 
 No exceptions. If any check fails, fix it before proceeding.
 
@@ -202,5 +202,5 @@ No exceptions. If any check fails, fix it before proceeding.
 
 1. Branch off `master`, make changes.
 2. Run `ruff check .` and `ruff format .`.
-3. Test with `docker compose up -d --build` or local `uv run fastapi run`.
+3. Test with `MOONDREAM_API_KEY=test docker compose up -d --build` or local `uv run fastapi run`.
 4. Open a PR — CI builds the Docker image.
