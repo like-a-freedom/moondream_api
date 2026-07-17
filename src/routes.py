@@ -92,21 +92,17 @@ def _extract_openai_content(
     last_message: ChatMessage,
 ) -> tuple[str | None, str | None]:
     """Extract image URL and text prompt from an OpenAI-style message."""
+    from schemas import ContentPartImage, ContentPartText
+
     image_url = None
     prompt = None
 
     if isinstance(last_message.content, list):
         for part in last_message.content:
-            if isinstance(part, dict):
-                if part.get("type") == "image_url":
-                    image_url = part["image_url"]["url"]
-                elif part.get("type") == "text":
-                    prompt = part["text"]
-            elif hasattr(part, "type"):
-                if part.type == "image_url":
-                    image_url = part.image_url.url
-                elif part.type == "text":
-                    prompt = part.text
+            if isinstance(part, ContentPartImage):
+                image_url = part.image_url.url
+            elif isinstance(part, ContentPartText):
+                prompt = part.text
 
     return image_url, prompt
 
@@ -115,22 +111,19 @@ def _extract_ollama_chat_content(
     last_message: OllamaMessage,
 ) -> tuple[str | None, str | None]:
     """Extract image data and text prompt from an Ollama-style chat message."""
-    image_data = None
-    prompt = None
+    image_data: str | None = None
+    prompt: str | None = None
 
     if isinstance(last_message.content, list):
         for part in last_message.content:
-            if isinstance(part, dict):
-                if part.get("type") == "image":
-                    raw = part.get("image")
-                    if raw and raw.startswith(("http://", "https://")):
-                        # For URL images in Ollama chat, we keep the URL as-is;
-                        # load_image will handle the download.
-                        image_data = raw
-                    elif raw:
-                        image_data = raw
-                elif part.get("type") == "text":
-                    prompt = part.get("text")
+            if isinstance(part, dict) and part.get("type") == "image":
+                raw = part.get("image")
+                if isinstance(raw, str):
+                    image_data = raw
+            elif isinstance(part, dict) and part.get("type") == "text":
+                raw = part.get("text")
+                if isinstance(raw, str):
+                    prompt = raw
     else:
         prompt = last_message.content
         if last_message.images:
@@ -141,7 +134,10 @@ def _extract_ollama_chat_content(
 
 def _get_service(request: Request) -> VisionService:
     """Get the vision service instance from the app lifespan state."""
-    return request.app.state.vision_service
+    vs = getattr(request.app.state, "vision_service", None)
+    if vs is None:
+        raise HTTPException(status_code=503, detail="Service not yet initialized")
+    return vs
 
 
 @openai_router.post("/chat/completions")
@@ -247,15 +243,16 @@ async def generate(request: Request, body: OllamaGenerateRequest):
 
         load_duration = time.time_ns() - load_start
 
-        prompt_eval_start = time.time_ns()
+        inference_start = time.time_ns()
         answers: list[str] = []
         for img in images:
             answers.append(vs.analyze_image(img, prompt))
 
-        prompt_eval_duration = time.time_ns() - prompt_eval_start
+        inference_duration = time.time_ns() - inference_start
         total_duration = time.time_ns() - start_time
 
-        combined_answer = answers[0]
+        # Join answers for all images so no inference is wasted
+        combined_answer = " | ".join(answers)
 
         return OllamaGenerateResponse(
             model=body.model or settings.MODEL_NAME,
@@ -266,9 +263,9 @@ async def generate(request: Request, body: OllamaGenerateRequest):
             total_duration=total_duration,
             load_duration=load_duration,
             prompt_eval_count=len(prompt),
-            prompt_eval_duration=prompt_eval_duration,
+            prompt_eval_duration=inference_duration,
             eval_count=len(combined_answer),
-            eval_duration=total_duration - load_duration - prompt_eval_duration,
+            eval_duration=inference_duration,
         )
 
     except VisionServiceError as e:

@@ -1,59 +1,212 @@
-## Overview
-The `moondream_api` project is designed to provide a lightweight and simple  OpenAI and Ollama-complaint API for handling various tasks. My goal was to make API for my own homeassistant + frigate bundle to integrate CV cameras with vision LLM that would be describe CV camera shots in a human-readable way. Service based on [Moondream](https://github.com/vikhyat/moondream) model that could be user even on Raspberry Pi/Orange Pi consumer-grade hardware.
+# Moondream API Service
 
-## Features
-- OpenAI and Ollama-complaint API (`/api/chat`, `/v1/api/completions`)
-- Easy to integrate and use
+OpenAI- and Ollama-compatible REST API for [Moondream](https://moondream.ai) — a fast vision-language model. Designed for home-automation setups (Home Assistant + Frigate) to describe camera shots in human-readable language.
 
-## Usage Instructions
-1. Clone the repository or just download the `docker-compose.yml` file.
-2. Run the following command to start the service: `docker compose up -d`.
-3. The service will be available at `http://localhost:18000` by default.
-4. The service can work with local model and via Moondream cloud API. If you want to use Moondream cloud API, you need to set the `MOONDREAM_API_KEY` environment variable. Get the key on [Moondream](https://moondream.ai/c/cloud/api-keys) You can do this by running the following command:
+## Architecture
 
-   Set the environment variable in the `docker-compose.yml` file:
-   ```yaml
-   environment:
-     - MOONDREAM_MODE=api
-     - MOONDREAM_API_KEY=your_api_key
-   ```
-5. That's it! You can now start using the API.
+The service wraps the **Moondream Python SDK** (v1.3+) in a FastAPI application, exposing:
 
-**Notes**:
+- **OpenAI-compatible** — `POST /v1/chat/completions`
+- **Ollama-compatible** — `POST /api/chat`, `POST /api/generate`, `POST /api/show`
 
-1. First start, it will take some time to download the model and start the service (depends on your internet connection, need to download ~600 MB for 500M model).
-2. In case if you're getting error like
-```
-Traceback (most recent call last):
-  File "/app/src/vision_service.py", line 30, in _download_model
-    os.makedirs(model_dir, exist_ok=True)
-  File "<frozen os>", line 225, in makedirs
-PermissionError: [Errno 13] Permission denied: '/app/model_cache/HuggingFaceTB_SmolVLM-256M-Instruct'
-```
-Then you need to change the permissions of the `model_cache` directory. You can do this by running the following command:
-```
-# Create the directory if it doesn't exist
-mkdir -p ./model_cache
+Moondream runs in one of two modes:
 
-# Set permissions (replace 1000:1000 with your actual UID:GID)
-sudo chown -R 1000:1000 ./model_cache
-sudo chmod -R 755 ./model_cache
+| Mode | Description | Requirements |
+|---|---|---|
+| **Cloud API** (default) | Inference on Moondream's servers | API key (free tier available) |
+| **Local Photon** | Local inference via Photon engine | API key + Apple Silicon (macOS 13+) or NVIDIA GPU (Linux/Windows) |
+
+No model files to download. No GPU required for cloud mode.
+
+## Quick Start
+
+### Prerequisites
+
+- Docker (or Python 3.13+ with `uv`)
+- [Moondream API key](https://moondream.ai/c/cloud/api-keys)
+
+### Docker
+
+```bash
+# Create docker-compose.yml (see below) and run:
+export MOONDREAM_API_KEY="your-api-key"
+docker compose up -d
 ```
 
-3. If you want to build the image yourself, you can run the following command: `docker compose up -d --build`.
+### Minimal `docker-compose.yml`
 
-## What else?
+```yaml
+services:
+  moondream-api:
+    image: ghcr.io/like-a-freedom/moondream_api:latest
+    container_name: moondream_api
+    restart: unless-stopped
+    environment:
+      - MOONDREAM_API_KEY=your_api_key_here
+      - MOONDREAM_MODE=api                       # "api" (cloud, default) or "local" (Photon)
+      - MODEL_NAME=moondream3.1-9B-A2B           # model to use
+    ports:
+      - 18000:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+```
 
-### Prompting
+### Local (Python 3.13+)
 
-Default prompt is described in `src/config.py` file in `DEFAULT_PROMPT` constant. You can change it to your own needs. Another way is to pass the prompt as a query parameter in the request.
+```bash
+git clone https://github.com/like-a-freedom/moondream_api
+cd moondream_api
 
-### API Endpoints and examples
+# Install dependencies
+uv sync
 
-FastAPI provides a nice interactive documentation for the API. You can access it at `http://localhost:18000/docs` or `http://localhost:18000/redoc`.
+# Run
+MOONDREAM_API_KEY="your-api-key" uv run fastapi run ./src/api.py --host 0.0.0.0 --port 8000
+```
 
-## Contributing
-We welcome contributions from the community! If you would like to contribute to the project, please open an issue or submit a pull request.
+## Configuration
+
+All settings are driven by environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `MOONDREAM_API_KEY` | `""` | **Required.** Moondream API key |
+| `MOONDREAM_MODE` | `"api"` | `"api"` for cloud, `"local"` for Photon |
+| `MODEL_NAME` | `"moondream3.1-9B-A2B"` | Model to use (`moondream3.1-9B-A2B`, `moondream3-preview`, or a finetune) |
+
+## API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/v1/chat/completions` | OpenAI-compatible chat with image support |
+| `POST` | `/api/chat` | Ollama-compatible chat |
+| `POST` | `/api/generate` | Ollama-compatible generate |
+| `POST` | `/api/show` | Ollama model info |
+| `GET` | `/health` | Service health check |
+
+Interactive docs: [`http://localhost:18000/docs`](http://localhost:18000/docs) (Swagger) or [`http://localhost:18000/redoc`](http://localhost:18000/redoc) (ReDoc).
+
+### Examples
+
+**OpenAI-compatible — describe an image:**
+
+```bash
+curl http://localhost:18000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "moondream3.1-9B-A2B",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "What do you see in this image?"},
+          {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}
+        ]
+      }
+    ]
+  }'
+```
+
+**Streaming (SSE) — set `"stream": true`:**
+
+```bash
+curl -N http://localhost:18000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "moondream3.1-9B-A2B",
+    "stream": true,
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "Describe this image"},
+          {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}
+        ]
+      }
+    ]
+  }'
+```
+
+**Ollama-compatible:**
+
+```bash
+curl http://localhost:18000/api/chat \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "moondream3.1-9B-A2B",
+    "messages": [
+      {"role": "user", "content": "Describe this", "images": ["<base64>"]}
+    ]
+  }'
+```
+
+## Image Input Formats
+
+The service accepts images in three formats:
+
+1. **HTTP/HTTPS URLs** — fetched server-side
+2. **Data URIs** — `data:image/jpeg;base64,...`
+3. **Raw base64** — plain base64-encoded bytes
+
+## Development
+
+### Prerequisites
+
+- Python 3.13+ (local dev)
+- `uv` package manager
+
+### Setup
+
+```bash
+uv sync                  # install dependencies + dev dependencies
+uv run pytest            # run tests with coverage
+uv run ruff check .      # lint
+uv run ruff format .     # format
+```
+
+### Test Suite
+
+```bash
+# Run all tests with coverage
+uv run pytest --cov=src --cov-report=term-missing
+
+# Run specific test file
+uv run pytest tests/test_routes.py -v
+```
+
+Test structure:
+
+| File | Tests |
+|---|---|
+| `tests/test_api.py` | App entry point, metadata |
+| `tests/test_api_lifespan.py` | Lifespan lifecycle |
+| `tests/test_config.py` | Settings defaults |
+| `tests/test_exceptions.py` | Exception hierarchy |
+| `tests/test_routes.py` | All API endpoints, streaming |
+| `tests/test_schemas.py` | Pydantic model validation |
+| `tests/test_vision_service.py` | Image loading, analysis, token costing |
+
+### Coverage Target
+
+> **94%+** across the entire `src/` tree. No regressions allowed.
+
+## Project Structure
+
+```
+src/
+  api.py                — FastAPI app, lifespan, router mounting
+  config.py             — Settings from environment variables
+  exceptions.py         — VisionServiceError, ImageAnalysisError, ImageLoadError
+  ollama_model_mocks.py — Static mock data for /api/show
+  routes.py             — Route handlers, SSE streaming helpers
+  schemas.py            — Pydantic request/response models
+  vision_service.py     — Moondream client wrapper, image loading
+```
 
 ## License
-This project is licensed under the MIT. See the LICENSE file for more details.
+
+MIT. See [LICENSE](LICENSE).

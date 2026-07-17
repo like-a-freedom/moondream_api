@@ -10,7 +10,7 @@ Single FastAPI application — no frontend, database, or microservice split.
 
 ## Tech stack
 
-Python 3.14 · FastAPI · [uv](https://docs.astral.sh/uv/) · Docker (multi-stage) · GitHub Actions CI/CD · Ruff for linting
+Python 3.14 · FastAPI · [uv](https://docs.astral.sh/uv/) · Docker (multi-stage) · GitHub Actions CI/CD · Ruff for linting · [ty](https://github.com/astral-sh/ty) for type checking
 
 ## Getting started
 
@@ -39,6 +39,7 @@ Service available at `localhost:8000` (local) or `localhost:18000` (Docker).
 | Rebuild image | `docker compose up -d --build` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
+| Type check | `uv run ty check src/` |
 
 ## Testing
 
@@ -61,10 +62,9 @@ Test structure:
 - `tests/test_api_lifespan.py` — lifespan lifecycle
 - `tests/test_config.py` — Settings
 - `tests/test_exceptions.py` — exception hierarchy
-- `tests/test_model_downloader*.py` — model download logic
 - `tests/test_routes.py` — HTTP endpoints (OpenAI, Ollama, health)
 - `tests/test_schemas.py` — Pydantic model construction/validation
-- `tests/test_vision_service*.py` — image loading, analysis, token costing
+- `tests/test_vision_service.py` — image loading, analysis, token costing
 
 Interactive docs also available:
 - Swagger UI: `http://localhost:18000/docs`
@@ -111,14 +111,49 @@ When working with this codebase, run `octocode index` first, then use `octocode 
 
 ## Configuration
 
-### Type checker (basedpyright)
+### Type checker (ty)
 
-Zed uses basedpyright for type checking. Configuration is in `basedpyrightconfig.json`:
-- Points to `.venv` for package resolution
-- `typeCheckingMode: "standard"` — catches real issues
-- Noisy diagnostics (`reportUnknown*`, `reportAny`, `reportAttributeAccessIssue`) are disabled — they cascade from third-party packages without stubs
+This project uses **[ty](https://github.com/astral-sh/ty)** for type checking — an extremely fast Python type checker written in Rust. Configuration is minimal: `ty` discovers `pyproject.toml` and `.venv` automatically, no config file needed.
 
-If you see import resolution errors, make sure `uv sync` has completed successfully (Python 3.13).
+```bash
+# Run type checking
+uv run ty check src/
+```
+
+**If you see import resolution errors:** make sure `uv sync` has completed successfully on Python 3.13 (`.python-version`).
+
+**Understanding diagnostics:**
+
+| Source | What it checks | How to run |
+|---|---|---|
+| **ruff** | Code style, formatting, import sorting | `uv run ruff check .` |
+| **ty** | Type safety, None guards, attribute access | `uv run ty check src/` |
+
+The quality gate targets **both** — zero ruff errors AND zero ty errors is mandatory.
+
+**Common `ty` patterns in this codebase:**
+
+```python
+# ❌ Avoid — dict without type parameters triggers error
+kws: dict = {"key": value}
+
+# ✅ Always specify type arguments
+kws: dict[str, Any] = {"key": value}
+
+# ❌ Avoid — direct access on TypedDict may raise runtime error
+result["answer"]
+
+# ✅ Use .get() with default
+result.get("answer", "")
+
+# ❌ Avoid — calling .startswith() on object | None
+raw = part.get("key")
+if raw and raw.startswith("http"):
+
+# ✅ Narrow the type with isinstance first
+raw = part.get("key")
+if isinstance(raw, str) and raw.startswith("http"):
+```
 
 ## Code conventions
 
@@ -131,6 +166,7 @@ Before any commit or PR:
 
 - Zero linter errors (`uv run ruff check .`)
 - Zero formatting issues (`uv run ruff format .`)
+- Zero type errors (`uv run ty check src/`)
 - All tests pass
 - Docker image builds successfully (`docker compose up -d --build`)
 

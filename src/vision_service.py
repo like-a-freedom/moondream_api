@@ -1,17 +1,13 @@
-import base64
 import io
-import os
 import time
 
 import moondream as md
 import psutil
-import requests
-import tiktoken
+from moondream.types import VLM as VLMClient
 from PIL import Image
 
 from config import settings
-from exceptions import ImageAnalysisError, ImageLoadError, ModelLoadError
-from model_downloader import download_model
+from exceptions import ImageAnalysisError, ImageLoadError
 
 
 def load_image(source: str) -> Image.Image:
@@ -22,20 +18,23 @@ def load_image(source: str) -> Image.Image:
     - http/https URLs (fetched via GET)
     - data URIs (``data:image/...;base64,...``)
     - raw base64-encoded image bytes
-
-    Auto-detects the format by checking the prefix.
     """
     try:
         if source.startswith(("http://", "https://")):
-            response = requests.get(source, timeout=30)
+            import httpx
+
+            response = httpx.get(source, timeout=30)
             response.raise_for_status()
             return Image.open(io.BytesIO(response.content))
         elif source.startswith("data:"):
-            # Strip the ``data:image/...;base64,`` prefix
+            import base64
+
             _, b64_data = source.split(",", 1)
             image_bytes = base64.b64decode(b64_data)
             return Image.open(io.BytesIO(image_bytes))
         else:
+            import base64
+
             image_bytes = base64.b64decode(source)
             return Image.open(io.BytesIO(image_bytes))
     except Exception as e:
@@ -43,23 +42,41 @@ def load_image(source: str) -> Image.Image:
 
 
 class VisionService:
-    def __init__(
-        self,
-        base_dir: str = settings.BASE_MODEL_DIR,
-        api_key: str = settings.MOONDREAM_API_KEY,
-    ) -> None:
-        self.base_dir: str = os.path.abspath(base_dir)
-        self.model_name: str = settings.MODEL_NAME
+    """Moondream vision service using Cloud API or local Photon inference."""
+
+    def __init__(self, api_key: str = settings.MOONDREAM_API_KEY) -> None:
         self.api_key: str = api_key
-        os.makedirs(self.base_dir, exist_ok=True)
+        self.model_name: str = settings.MODEL_NAME
+        self.local: bool = settings.MOONDREAM_MODE == "local"
+        self._client: VLMClient | None = None
+        self._init_client()
+
+    def _init_client(self) -> None:
+        """Initialize the Moondream client (Cloud or Photon local)."""
         try:
-            self.model = self._load_model()
-            source = self.base_dir if not self.api_key else "API mode"
-            print(f"Model loaded successfully from {source}")
+            if self.local:
+                self._client = md.vl(
+                    api_key=self.api_key,
+                    local=True,
+                    model=self.model_name,
+                )
+            else:
+                self._client = md.vl(
+                    api_key=self.api_key,
+                    model=self.model_name,
+                )
+            mode = "local (Photon)" if self.local else "cloud"
+            print(f"Moondream client initialized: mode={mode}, model={self.model_name}")
         except Exception as e:
-            raise ModelLoadError(f"Failed to initialize vision service: {e}")
+            raise RuntimeError(f"Failed to initialize Moondream client: {e}")
+
+    @property
+    def model(self) -> VLMClient | None:
+        """Access the underlying Moondream client (for health checks, etc.)."""
+        return self._client
 
     def _resize_image(self, image: Image.Image) -> Image.Image:
+        """Resize image if it exceeds MAX_IMAGE_SIZE (useful for local mode)."""
         longest_edge = max(image.size)
         if longest_edge > settings.MAX_IMAGE_SIZE:
             scale = settings.MAX_IMAGE_SIZE / longest_edge
@@ -67,53 +84,43 @@ class VisionService:
             return image.resize(new_size, Image.Resampling.LANCZOS)
         return image
 
-    def _load_model(self) -> md.VLM:
-        """Load the model from local path or API."""
-        if self.api_key:
-            return md.vl(api_key=self.api_key)
-        model_path = os.path.join(self.base_dir, self.model_name)
-        if not os.path.exists(model_path):
-            download_model(self.model_name, model_path)
-        return md.vl(model=model_path)
-
     def analyze_image(self, image: Image.Image, user_prompt: str) -> str:
         """
         Analyze an image using the Moondream model.
 
         Args:
             image: The image to analyze (PIL Image).
-            user_prompt: The user's text prompt.
+            user_prompt: The user's question about the image.
 
         Returns:
-            Generated text description.
+            Generated text answer.
         """
         image = self._resize_image(image)
         try:
             start_time = time.time()
-            if self.api_key:
-                answer = self.model.query(image, user_prompt)["answer"]
-            else:
-                encoded_image = self.model.encode_image(image)
-                answer = self.model.query(encoded_image, user_prompt)["answer"]
+            client = self._client
+            if client is None:
+                raise RuntimeError("Moondream client not initialized")
+            result = client.query(image, user_prompt)
             end_time = time.time()
-            print(f"Query execution time: {end_time - start_time:.2f} seconds")
+            print(f"Query execution time: {end_time - start_time:.2f}s")
+            answer = result.get("answer", "")
             return str(answer).strip()
         except Exception as e:
             raise ImageAnalysisError(f"Error analyzing image: {e}")
 
     def calculate_token_cost(self, prompt: str, model_answer: str) -> tuple[int, int]:
-        """Calculate token cost for a prompt and answer."""
-        if self.api_key:
-            return (len(prompt), len(model_answer))
-        openai_tokenizer = tiktoken.get_encoding("cl100k_base")
-        input_tokens = len(prompt)
-        output_tokens = len(openai_tokenizer.encode(model_answer))
-        return (input_tokens, output_tokens)
+        """
+        Estimate token cost for usage reporting.
+
+        In cloud mode the actual token count comes from the Moondream API
+        response, but we return a character-based estimate here for the
+        OpenAI-compatible usage field.
+        """
+        return (len(prompt), len(model_answer))
 
     def get_memory_usage(self) -> dict[str, float]:
         """Get memory usage of the current process in MB."""
-        if self.api_key:
-            return {"resident_memory": 0, "virtual_memory": 0}
         process = psutil.Process()
         memory = process.memory_info()
         return {
@@ -123,6 +130,4 @@ class VisionService:
 
 
 def get_vision_service() -> VisionService:
-    if settings.MOONDREAM_MODE == "api" and settings.MOONDREAM_API_KEY:
-        return VisionService(api_key=settings.MOONDREAM_API_KEY)
-    return VisionService()
+    return VisionService(api_key=settings.MOONDREAM_API_KEY)

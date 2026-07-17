@@ -4,18 +4,6 @@ class VisionServiceError(Exception):
     pass
 
 
-class ModelDownloadError(VisionServiceError):
-    """Exception raised for errors during model download."""
-
-    pass
-
-
-class ModelLoadError(VisionServiceError):
-    """Exception raised for errors during model loading."""
-
-    pass
-
-
 class ImageAnalysisError(VisionServiceError):
     """Exception raised for errors during image analysis."""
 
