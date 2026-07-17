@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import Optional, Union, List, Dict, Any
 
 
 class ImageUrl(BaseModel):
@@ -18,14 +17,14 @@ class ContentPartText(BaseModel):
 
 class ChatMessage(BaseModel):
     role: str
-    content: Union[str, List[Union[ContentPartImage, ContentPartText]]]
+    content: str | list[ContentPartImage | ContentPartText]
 
 
 class ChatCompletionRequest(BaseModel):
     model: str
-    messages: List[ChatMessage]
-    temperature: Optional[float] = 1.0
-    stream: Optional[bool] = False
+    messages: list[ChatMessage]
+    temperature: float | None = 1.0
+    stream: bool | None = False
 
 
 class ChatChoice(BaseModel):
@@ -39,22 +38,22 @@ class ChatCompletionResponse(BaseModel):
     object: str = "chat.completion"
     created: int
     model: str
-    choices: List[ChatChoice]
-    usage: Dict[str, int]
+    choices: list[ChatChoice]
+    usage: dict[str, int]
 
 
 class OllamaMessage(BaseModel):
     role: str
-    content: Union[str, List[dict]]
-    images: Optional[List[str]] = None
+    content: str | list[dict[str, object]]
+    images: list[str] | None = None
 
 
 class OllamaChatRequest(BaseModel):
-    model: Optional[str] = None
-    messages: List[OllamaMessage]
+    model: str | None = None
+    messages: list[OllamaMessage]
     stream: bool = False
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
+    temperature: float | None = None
+    max_tokens: int | None = None
 
 
 class OllamaChatResponse(BaseModel):
@@ -72,7 +71,7 @@ class OllamaModelDetails(BaseModel):
     parent_model: str
     format: str
     family: str
-    families: List[str]
+    families: list[str]
     parameter_size: str
     quantization_level: str
 
@@ -83,47 +82,47 @@ class OllamaModelShowResponse(BaseModel):
     parameters: str
     template: str
     details: OllamaModelDetails
-    model_info: Dict[str, Any]
-    projector_info: Dict[str, Any]
+    model_info: dict[str, object]
+    projector_info: dict[str, object]
     modified_at: str
 
 
 class OllamaGenerateOptions(BaseModel):
-    num_keep: Optional[int] = 5
-    seed: Optional[int] = 42
-    num_predict: Optional[int] = 100
-    top_k: Optional[int] = 20
-    top_p: Optional[float] = 0.9
-    min_p: Optional[float] = 0.0
-    typical_p: Optional[float] = 0.7
-    repeat_last_n: Optional[int] = 33
-    temperature: Optional[float] = 0.8
-    repeat_penalty: Optional[float] = 1.2
-    presence_penalty: Optional[float] = 1.5
-    frequency_penalty: Optional[float] = 1.0
-    mirostat: Optional[int] = 1
-    mirostat_tau: Optional[float] = 0.8
-    mirostat_eta: Optional[float] = 0.6
-    penalize_newline: Optional[bool] = True
-    stop: Optional[List[str]] = ["\\n", "user:"]
-    numa: Optional[bool] = False
-    num_ctx: Optional[int] = 1024
-    num_batch: Optional[int] = 2
-    num_gpu: Optional[int] = 1
-    main_gpu: Optional[int] = 0
-    low_vram: Optional[bool] = False
-    vocab_only: Optional[bool] = False
-    use_mmap: Optional[bool] = True
-    use_mlock: Optional[bool] = False
-    num_thread: Optional[int] = 8
+    num_keep: int | None = 5
+    seed: int | None = 42
+    num_predict: int | None = 100
+    top_k: int | None = 20
+    top_p: float | None = 0.9
+    min_p: float | None = 0.0
+    typical_p: float | None = 0.7
+    repeat_last_n: int | None = 33
+    temperature: float | None = 0.8
+    repeat_penalty: float | None = 1.2
+    presence_penalty: float | None = 1.5
+    frequency_penalty: float | None = 1.0
+    mirostat: int | None = 1
+    mirostat_tau: float | None = 0.8
+    mirostat_eta: float | None = 0.6
+    penalize_newline: bool | None = True
+    stop: list[str] | None = ["\\n", "user:"]
+    numa: bool | None = False
+    num_ctx: int | None = 1024
+    num_batch: int | None = 2
+    num_gpu: int | None = 1
+    main_gpu: int | None = 0
+    low_vram: bool | None = False
+    vocab_only: bool | None = False
+    use_mmap: bool | None = True
+    use_mlock: bool | None = False
+    num_thread: int | None = 8
 
 
 class OllamaGenerateRequest(BaseModel):
     model: str
     prompt: str
-    stream: Optional[bool] = False
-    options: Optional[OllamaGenerateOptions] = OllamaGenerateOptions()
-    images: Optional[List[str]]
+    stream: bool | None = False
+    options: OllamaGenerateOptions | None = OllamaGenerateOptions()
+    images: list[str] | None
 
 
 class OllamaGenerateResponse(BaseModel):
@@ -131,7 +130,7 @@ class OllamaGenerateResponse(BaseModel):
     created_at: str
     response: str
     done: bool
-    context: List[int]
+    context: list[int]
     total_duration: int
     load_duration: int
     prompt_eval_count: int

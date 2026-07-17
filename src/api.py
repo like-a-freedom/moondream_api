@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from routes import ollama_router, openai_router, default_router
+
+from routes import default_router, ollama_router, openai_router
 
 app = FastAPI(
     title="Moondream API Service",

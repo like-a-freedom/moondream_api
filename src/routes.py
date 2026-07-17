@@ -7,21 +7,21 @@ import requests
 from fastapi import APIRouter, HTTPException
 from PIL import Image
 
-from ollama_model_mocks import MOCK_MOONDREAM_MODEL_DATA
 from config import settings
 from exceptions import VisionServiceException
+from ollama_model_mocks import MOCK_MOONDREAM_MODEL_DATA
 from schemas import (
     ChatChoice,
     ChatCompletionRequest,
     ChatCompletionResponse,
     ChatMessage,
-    OllamaMessage,
     OllamaChatRequest,
     OllamaChatResponse,
-    OllamaModelShowResponse,
-    OllamaShowModelRequest,
     OllamaGenerateRequest,
     OllamaGenerateResponse,
+    OllamaMessage,
+    OllamaModelShowResponse,
+    OllamaShowModelRequest,
 )
 from vision_service import get_vision_service
 
@@ -177,25 +177,29 @@ async def generate(request: OllamaGenerateRequest):
         load_duration = time.time_ns() - load_start
 
         prompt_eval_start = time.time_ns()
-        answers = []
+        answers: list[str] = []
         for img in processed_images:
-            answer = vision_service.analyze_image(img, prompt)
-            answers.append(answer)
+            answers.append(vision_service.analyze_image(img, prompt))
 
         prompt_eval_duration = time.time_ns() - prompt_eval_start
         total_duration = time.time_ns() - start_time
 
+        if not answers:
+            raise HTTPException(status_code=400, detail="No images provided")
+
+        combined_answer = answers[0]
+
         return OllamaGenerateResponse(
             model=request.model or settings.MODEL_NAME,
             created_at=datetime.now(timezone.utc).isoformat(),
-            response=answer,
+            response=combined_answer,
             done=True,
             context=[],
             total_duration=total_duration,
             load_duration=load_duration,
             prompt_eval_count=len(prompt),
             prompt_eval_duration=prompt_eval_duration,
-            eval_count=len(answer),
+            eval_count=len(combined_answer),
             eval_duration=total_duration - load_duration - prompt_eval_duration,
         )
 
@@ -207,7 +211,7 @@ async def generate(request: OllamaGenerateRequest):
 
 @ollama_router.post("/api/show", response_model=OllamaModelShowResponse)
 async def ollama_show_model(request: OllamaShowModelRequest):
-    if request.model not in ("moondream" or "moondream2"):
+    if request.model not in ("moondream", "moondream2"):
         raise HTTPException(status_code=404, detail=f"Model {request.model} not found")
     return MOCK_MOONDREAM_MODEL_DATA
 

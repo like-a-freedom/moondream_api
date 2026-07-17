@@ -13,3 +13,17 @@ dependencies = [
     "tiktoken>=0.8.0",
     "wheel>=0.46.2",
 ]
+
+[tool.uv]
+override-dependencies = [
+    "onnxruntime>=1.24.1",
+    "tokenizers>=0.21.0",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = []

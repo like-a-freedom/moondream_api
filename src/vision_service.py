@@ -1,14 +1,14 @@
 import gzip
 import os
-import psutil
 import shutil
 import time
-import tiktoken
-from typing import Dict, Tuple
 from abc import ABC, abstractmethod
+from typing import override
 
 import moondream as md
+import psutil
 import requests
+import tiktoken
 from PIL import Image
 
 from config import settings
@@ -25,31 +25,31 @@ class VisionServiceBase(ABC):
         return image
 
     @abstractmethod
-    def analyze_image(self, image: Image.Image, user_prompt: str) -> str:
-        pass
+    def analyze_image(self, image: Image.Image, user_prompt: str) -> str: ...
 
     @abstractmethod
-    def calculate_token_cost(self, prompt: str, model_answer: str):
-        pass
+    def calculate_token_cost(
+        self, prompt: str, model_answer: str
+    ) -> tuple[int, int]: ...
 
     @abstractmethod
-    def get_memory_usage(self):
-        pass
+    def get_memory_usage(self) -> dict[str, float]: ...
 
 
 class MoondreamVisionService(VisionServiceBase):
     def __init__(
-        self, base_dir=settings.BASE_MODEL_DIR, api_key=settings.MOONDREAM_API_KEY
-    ):
-        self.base_dir = os.path.abspath(base_dir)
-        self.model_name = settings.MODEL_NAME
-        self.api_key = api_key
+        self,
+        base_dir: str = settings.BASE_MODEL_DIR,
+        api_key: str = settings.MOONDREAM_API_KEY,
+    ) -> None:
+        self.base_dir: str = os.path.abspath(base_dir)
+        self.model_name: str = settings.MODEL_NAME
+        self.api_key: str = api_key
         os.makedirs(self.base_dir, exist_ok=True)
         try:
             self.model = self._load_model()
-            print(
-                f"Model loaded successfully from {self.base_dir if not self.api_key else 'API mode'}"
-            )
+            source = self.base_dir if not self.api_key else "API mode"
+            print(f"Model loaded successfully from {source}")
         except Exception as e:
             raise ModelLoadError(f"Failed to initialize vision service: {e}")
 
@@ -90,13 +90,15 @@ class MoondreamVisionService(VisionServiceBase):
             with open(model_path + ".gz", "wb") as f:
                 for chunk in response.iter_content(chunk_size=block_size):
                     if chunk:
-                        f.write(chunk)
+                        _ = f.write(chunk)
                         wrote = wrote + len(chunk)
                         progress = int((wrote / total_size) * 100) if total_size else 0
-                        print(
-                            f"Downloading model: {progress}% ({wrote / (1024 * 1024):.2f} MB / {total_size / (1024 * 1024):.2f} MB)",
-                            end="\r",
+                        msg = (
+                            f"Downloading model: {progress}% "
+                            f"({wrote / (1024 * 1024):.2f} MB / "
+                            f"{total_size / (1024 * 1024):.2f} MB)"
                         )
+                        print(msg, end="\r")
 
             with (
                 gzip.open(model_path + ".gz", "rb") as f_in,
@@ -109,6 +111,7 @@ class MoondreamVisionService(VisionServiceBase):
         except Exception as e:
             raise ModelDownloadError(f"Error downloading model: {e}")
 
+    @override
     def analyze_image(self, image: Image.Image, user_prompt: str) -> str:
         """
         Analyze an image using the Moondream model
@@ -134,7 +137,8 @@ class MoondreamVisionService(VisionServiceBase):
         except Exception as e:
             raise ImageAnalysisError(f"Error analyzing image: {e}")
 
-    def calculate_token_cost(self, prompt: str, model_answer: str) -> Tuple[int, int]:
+    @override
+    def calculate_token_cost(self, prompt: str, model_answer: str) -> tuple[int, int]:
         """
         Calculate the token cost of a prompt
         Args:
@@ -150,7 +154,8 @@ class MoondreamVisionService(VisionServiceBase):
         output_tokens = len(openai_tokenizer.encode(model_answer))
         return (input_tokens, output_tokens)
 
-    def get_memory_usage(self) -> Dict[str, float]:
+    @override
+    def get_memory_usage(self) -> dict[str, float]:
         if self.api_key:
             # Not available for remote API, return dummy values
             return {"resident_memory": 0, "virtual_memory": 0}
@@ -162,7 +167,7 @@ class MoondreamVisionService(VisionServiceBase):
         }
 
 
-def get_vision_service():
+def get_vision_service() -> MoondreamVisionService:
     if settings.MOONDREAM_MODE == "api" and settings.MOONDREAM_API_KEY:
         return MoondreamVisionService(api_key=settings.MOONDREAM_API_KEY)
     return MoondreamVisionService()
