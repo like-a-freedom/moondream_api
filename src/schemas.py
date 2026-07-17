@@ -122,7 +122,7 @@ class OllamaGenerateRequest(BaseModel):
     prompt: str
     stream: bool | None = False
     options: OllamaGenerateOptions | None = OllamaGenerateOptions()
-    images: list[str] | None
+    images: list[str] | None = None
 
 
 class OllamaGenerateResponse(BaseModel):

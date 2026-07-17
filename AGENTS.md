@@ -14,8 +14,12 @@ Python 3.14 · FastAPI · [uv](https://docs.astral.sh/uv/) · Docker (multi-stag
 
 ## Getting started
 
+### Local (Python 3.13)
+
+The project pins Python 3.13 locally because C-extension packages (`tiktoken`, `onnx`, `pydantic-core`) depend on PyO3 which only supports up to 3.13 on macOS ARM. Docker builds use Python 3.14 (builds from source).
+
 ```bash
-# Local
+# Local (uses .python-version → 3.13)
 uv sync
 uv run fastapi run ./src/api.py --host 0.0.0.0 --port 8000
 
@@ -38,11 +42,33 @@ Service available at `localhost:8000` (local) or `localhost:18000` (Docker).
 
 ## Testing
 
-No automated test suite yet. Use the interactive docs:
+Automated test suite with pytest + pytest-cov:
 
+```bash
+# Run all tests with coverage
+uv run pytest --cov=src --cov-report=term-missing
+
+# Run specific test file
+uv run pytest tests/test_routes.py -v
+
+# Run tests without coverage
+uv run pytest -v
+```
+
+Test structure:
+- `tests/conftest.py` — shared fixtures (fake model, fake vision service, test client)
+- `tests/test_api.py` — API app entry point
+- `tests/test_api_lifespan.py` — lifespan lifecycle
+- `tests/test_config.py` — Settings
+- `tests/test_exceptions.py` — exception hierarchy
+- `tests/test_model_downloader*.py` — model download logic
+- `tests/test_routes.py` — HTTP endpoints (OpenAI, Ollama, health)
+- `tests/test_schemas.py` — Pydantic model construction/validation
+- `tests/test_vision_service*.py` — image loading, analysis, token costing
+
+Interactive docs also available:
 - Swagger UI: `http://localhost:18000/docs`
 - ReDoc: `http://localhost:18000/redoc`
-- Health check: `GET /health`
 
 ## API surface
 
@@ -82,6 +108,17 @@ octocode grep "def analyze_image($$$)"
 ```
 
 When working with this codebase, run `octocode index` first, then use `octocode search`, `octocode view`, and `octocode graphrag` to navigate the codebase before reading files in full.
+
+## Configuration
+
+### Type checker (basedpyright)
+
+Zed uses basedpyright for type checking. Configuration is in `basedpyrightconfig.json`:
+- Points to `.venv` for package resolution
+- `typeCheckingMode: "standard"` — catches real issues
+- Noisy diagnostics (`reportUnknown*`, `reportAny`, `reportAttributeAccessIssue`) are disabled — they cascade from third-party packages without stubs
+
+If you see import resolution errors, make sure `uv sync` has completed successfully (Python 3.13).
 
 ## Code conventions
 

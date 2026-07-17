@@ -1,14 +1,13 @@
-import base64
-import io
+import json
 import time
+from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 
-import requests
-from fastapi import APIRouter, HTTPException
-from PIL import Image
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from config import settings
-from exceptions import VisionServiceException
+from exceptions import VisionServiceError
 from ollama_model_mocks import MOCK_MOONDREAM_MODEL_DATA
 from schemas import (
     ChatChoice,
@@ -23,57 +22,161 @@ from schemas import (
     OllamaModelShowResponse,
     OllamaShowModelRequest,
 )
-from vision_service import get_vision_service
+from vision_service import VisionService, load_image
+
+# ── OpenAI SSE streaming helpers ──────────────────────────────────────────
+
+
+def _make_streaming_chunk(
+    chunk_id: str,
+    created: int,
+    model: str,
+    *,
+    delta_content: str | None = None,
+    finish_reason: str | None = None,
+) -> str:
+    """Build an SSE ``data:`` line matching the OpenAI chat completion chunk format."""
+    delta: dict[str, str] = {}
+    if delta_content is not None:
+        delta["content"] = delta_content
+    choice = {
+        "index": 0,
+        "delta": delta,
+        "logprobs": None,
+        "finish_reason": finish_reason,
+    }
+    payload = {
+        "id": chunk_id,
+        "object": "chat.completion.chunk",
+        "created": created,
+        "model": model,
+        "system_fingerprint": None,
+        "choices": [choice],
+    }
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+async def _openai_stream_generator(
+    vs: VisionService,
+    image_url: str,
+    prompt: str,
+    model: str,
+) -> AsyncGenerator[str, None]:
+    """Yield SSE ``data:`` lines for an OpenAI streaming response."""
+    chunk_id = f"chatcmpl-{int(time.time())}"
+    created = int(time.time())
+
+    image = load_image(image_url)
+    # Run inference; we don't have per-token streaming from the local model,
+    # so we yield the full answer as a single delta.
+    answer = vs.analyze_image(image, prompt)
+
+    # Role announcement
+    yield _make_streaming_chunk(chunk_id, created, model, delta_content="")
+
+    # Content delta (entire answer)
+    yield _make_streaming_chunk(chunk_id, created, model, delta_content=answer)
+
+    # Final chunk with finish_reason
+    yield _make_streaming_chunk(chunk_id, created, model, finish_reason="stop")
+
+    yield "data: [DONE]\n\n"
+
 
 openai_router = APIRouter()
 ollama_router = APIRouter()
 default_router = APIRouter()
-vision_service = get_vision_service()
 
 
-@openai_router.post("/chat/completions", response_model=ChatCompletionResponse)
-async def chat_completion(request: ChatCompletionRequest):
+def _extract_openai_content(
+    last_message: ChatMessage,
+) -> tuple[str | None, str | None]:
+    """Extract image URL and text prompt from an OpenAI-style message."""
+    image_url = None
+    prompt = None
+
+    if isinstance(last_message.content, list):
+        for part in last_message.content:
+            if isinstance(part, dict):
+                if part.get("type") == "image_url":
+                    image_url = part["image_url"]["url"]
+                elif part.get("type") == "text":
+                    prompt = part["text"]
+            elif hasattr(part, "type"):
+                if part.type == "image_url":
+                    image_url = part.image_url.url
+                elif part.type == "text":
+                    prompt = part.text
+
+    return image_url, prompt
+
+
+def _extract_ollama_chat_content(
+    last_message: OllamaMessage,
+) -> tuple[str | None, str | None]:
+    """Extract image data and text prompt from an Ollama-style chat message."""
+    image_data = None
+    prompt = None
+
+    if isinstance(last_message.content, list):
+        for part in last_message.content:
+            if isinstance(part, dict):
+                if part.get("type") == "image":
+                    raw = part.get("image")
+                    if raw and raw.startswith(("http://", "https://")):
+                        # For URL images in Ollama chat, we keep the URL as-is;
+                        # load_image will handle the download.
+                        image_data = raw
+                    elif raw:
+                        image_data = raw
+                elif part.get("type") == "text":
+                    prompt = part.get("text")
+    else:
+        prompt = last_message.content
+        if last_message.images:
+            image_data = last_message.images[0]
+
+    return image_data, prompt
+
+
+def _get_service(request: Request) -> VisionService:
+    """Get the vision service instance from the app lifespan state."""
+    return request.app.state.vision_service
+
+
+@openai_router.post("/chat/completions")
+async def chat_completion(
+    request: Request,
+    body: ChatCompletionRequest,
+):
     try:
-        last_message = request.messages[-1]
-        image_url = None
-        prompt = None
-
-        if isinstance(last_message.content, list):
-            for content in last_message.content:
-                if isinstance(content, dict):
-                    if content.get("type") == "image_url":
-                        image_url = content["image_url"]["url"]
-                    elif content.get("type") == "text":
-                        prompt = content["text"]
-
-                # Handle structured content
-                if hasattr(content, "type"):
-                    if content.type == "image_url":
-                        image_url = content.image_url.url
-                    elif content.type == "text":
-                        prompt = content.text
+        vs = _get_service(request)
+        last_message = body.messages[-1]
+        image_url, prompt = _extract_openai_content(last_message)
 
         if not image_url:
             raise HTTPException(status_code=400, detail="No image URL provided")
         if not prompt:
             raise HTTPException(status_code=400, detail="No text prompt provided")
 
-        # Download and process image
-        try:
-            response = requests.get(image_url)
-            image = Image.open(io.BytesIO(response.content))
-        except Exception as e:
-            raise HTTPException(
-                status_code=400, detail=f"Failed to load image: {str(e)}"
+        # ── Streaming path ──────────────────────────────────────────────
+        if body.stream:
+            return StreamingResponse(
+                _openai_stream_generator(
+                    vs, image_url, prompt, body.model or settings.MODEL_NAME
+                ),
+                media_type="text/event-stream",
             )
 
-        text_answer = vision_service.analyze_image(image, prompt)
-        usage_stats = vision_service.calculate_token_cost(prompt, text_answer)
+        # ── Non-streaming path ──────────────────────────────────────────
+        image = load_image(image_url)
+        text_answer = vs.analyze_image(image, prompt)
+        usage_stats = vs.calculate_token_cost(prompt, text_answer)
 
         return ChatCompletionResponse(
             id=f"chatcmpl-{int(time.time())}",
             created=int(time.time()),
-            model=request.model or settings.MODEL_NAME,
+            model=body.model or settings.MODEL_NAME,
             choices=[
                 ChatChoice(
                     index=0,
@@ -88,109 +191,74 @@ async def chat_completion(request: ChatCompletionRequest):
             },
         )
 
-    except VisionServiceException as e:
+    except VisionServiceError as e:
         raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @ollama_router.post("/api/chat", response_model=OllamaChatResponse)
-async def ollama_chat_completion(request: OllamaChatRequest):
+async def ollama_chat_completion(request: Request, body: OllamaChatRequest):
     try:
-        last_message = request.messages[-1]
-        image_data = None
-        prompt = None
-
-        if isinstance(last_message.content, list):
-            # Handle structured content
-            for content in last_message.content:
-                if isinstance(content, dict):
-                    if content.get("type") == "image":
-                        # Handle image URL
-                        image_url = content.get("image")
-                        if image_url and image_url.startswith("http"):
-                            response = requests.get(image_url)
-                            image_data = base64.b64encode(response.content).decode(
-                                "utf-8"
-                            )
-                    elif content.get("type") == "text":
-                        prompt = content.get("text")
-        else:
-            # Handle simple content
-            prompt = last_message.content
-            if last_message.images and len(last_message.images) > 0:
-                image_data = last_message.images[0]
+        vs = _get_service(request)
+        last_message = body.messages[-1]
+        image_data, prompt = _extract_ollama_chat_content(last_message)
 
         if not image_data:
             raise HTTPException(status_code=400, detail="No image provided")
         if not prompt:
             raise HTTPException(status_code=400, detail="No text prompt provided")
 
-        try:
-            # Decode base64 image or download URL
-            if image_data.startswith("http"):
-                response = requests.get(image_data)
-                image = Image.open(io.BytesIO(response.content))
-            else:
-                image_bytes = base64.b64decode(image_data)
-                image = Image.open(io.BytesIO(image_bytes))
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid image data: {str(e)}")
-
-        # Process image and generate response
-        answer = vision_service.analyze_image(image, prompt)
+        image = load_image(image_data)
+        answer = vs.analyze_image(image, prompt)
 
         return OllamaChatResponse(
-            model=request.model or settings.MODEL_NAME,
+            model=body.model or settings.MODEL_NAME,
             created_at=datetime.now(timezone.utc).isoformat(),
             message=OllamaMessage(role="assistant", content=answer),
             done=True,
         )
 
-    except VisionServiceException as e:
+    except VisionServiceError as e:
         raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @ollama_router.post("/api/generate", response_model=OllamaGenerateResponse)
-async def generate(request: OllamaGenerateRequest):
+async def generate(request: Request, body: OllamaGenerateRequest):
     try:
         start_time = time.time_ns()
         load_start = time.time_ns()
 
-        # Process the prompt and images
-        prompt = request.prompt
-        processed_images = []
+        vs = _get_service(request)
+        prompt = body.prompt
 
-        if request.images:
-            for image_data in request.images:
-                try:
-                    image_bytes = base64.b64decode(image_data)
-                    image = Image.open(io.BytesIO(image_bytes))
-                    processed_images.append(image)
-                except Exception as e:
-                    raise HTTPException(
-                        status_code=400, detail=f"Invalid image format: {str(e)}"
-                    )
+        if not body.images:
+            raise HTTPException(status_code=400, detail="No images provided")
+
+        images = []
+        for image_data in body.images:
+            images.append(load_image(image_data))
 
         load_duration = time.time_ns() - load_start
 
         prompt_eval_start = time.time_ns()
         answers: list[str] = []
-        for img in processed_images:
-            answers.append(vision_service.analyze_image(img, prompt))
+        for img in images:
+            answers.append(vs.analyze_image(img, prompt))
 
         prompt_eval_duration = time.time_ns() - prompt_eval_start
         total_duration = time.time_ns() - start_time
 
-        if not answers:
-            raise HTTPException(status_code=400, detail="No images provided")
-
         combined_answer = answers[0]
 
         return OllamaGenerateResponse(
-            model=request.model or settings.MODEL_NAME,
+            model=body.model or settings.MODEL_NAME,
             created_at=datetime.now(timezone.utc).isoformat(),
             response=combined_answer,
             done=True,
@@ -203,37 +271,38 @@ async def generate(request: OllamaGenerateRequest):
             eval_duration=total_duration - load_duration - prompt_eval_duration,
         )
 
-    except VisionServiceException as e:
+    except VisionServiceError as e:
         raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @ollama_router.post("/api/show", response_model=OllamaModelShowResponse)
-async def ollama_show_model(request: OllamaShowModelRequest):
-    if request.model not in ("moondream", "moondream2"):
-        raise HTTPException(status_code=404, detail=f"Model {request.model} not found")
+async def ollama_show_model(body: OllamaShowModelRequest):
+    if body.model not in ("moondream", "moondream2"):
+        raise HTTPException(status_code=404, detail=f"Model {body.model} not found")
     return MOCK_MOONDREAM_MODEL_DATA
 
 
 @default_router.get("/health")
-async def health_check():
-    """Health check endpoint for container orchestration"""
+async def health_check(request: Request):
+    """Health check endpoint for container orchestration."""
     try:
-        # Check if model is loaded
-        if not vision_service or not vision_service.model:
+        vs = getattr(request.app.state, "vision_service", None)
+        if not vs or not vs.model:
             return {
-                "status": "error",
-                "message": "Vision service not initialized",
+                "status": "initializing",
+                "message": "Vision service not yet initialized",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
-        # Get memory stats
-        memory_stats = vision_service.get_memory_usage()
+        memory_stats = vs.get_memory_usage()
 
         return {
             "status": "healthy",
-            "model": vision_service.model_name,
+            "model": vs.model_name,
             "memory": {
                 "resident_mb": f"{memory_stats['resident_memory']:.2f}",
                 "virtual_mb": f"{memory_stats['virtual_memory']:.2f}",

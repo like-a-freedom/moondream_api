@@ -1,9 +1,7 @@
-import gzip
+import base64
+import io
 import os
-import shutil
 import time
-from abc import ABC, abstractmethod
-from typing import override
 
 import moondream as md
 import psutil
@@ -12,31 +10,39 @@ import tiktoken
 from PIL import Image
 
 from config import settings
-from exceptions import ImageAnalysisError, ModelDownloadError, ModelLoadError
+from exceptions import ImageAnalysisError, ImageLoadError, ModelLoadError
+from model_downloader import download_model
 
 
-class VisionServiceBase(ABC):
-    def _resize_image(self, image: Image.Image) -> Image.Image:
-        longest_edge = max(image.size)
-        if longest_edge > settings.MAX_IMAGE_SIZE:
-            scale = settings.MAX_IMAGE_SIZE / longest_edge
-            new_size = (int(image.size[0] * scale), int(image.size[1] * scale))
-            return image.resize(new_size, Image.Resampling.LANCZOS)
-        return image
+def load_image(source: str) -> Image.Image:
+    """
+    Load an image from a URL, data URI, or base64-encoded string.
 
-    @abstractmethod
-    def analyze_image(self, image: Image.Image, user_prompt: str) -> str: ...
+    Accepts:
+    - http/https URLs (fetched via GET)
+    - data URIs (``data:image/...;base64,...``)
+    - raw base64-encoded image bytes
 
-    @abstractmethod
-    def calculate_token_cost(
-        self, prompt: str, model_answer: str
-    ) -> tuple[int, int]: ...
+    Auto-detects the format by checking the prefix.
+    """
+    try:
+        if source.startswith(("http://", "https://")):
+            response = requests.get(source, timeout=30)
+            response.raise_for_status()
+            return Image.open(io.BytesIO(response.content))
+        elif source.startswith("data:"):
+            # Strip the ``data:image/...;base64,`` prefix
+            _, b64_data = source.split(",", 1)
+            image_bytes = base64.b64decode(b64_data)
+            return Image.open(io.BytesIO(image_bytes))
+        else:
+            image_bytes = base64.b64decode(source)
+            return Image.open(io.BytesIO(image_bytes))
+    except Exception as e:
+        raise ImageLoadError(f"Failed to load image: {e}")
 
-    @abstractmethod
-    def get_memory_usage(self) -> dict[str, float]: ...
 
-
-class MoondreamVisionService(VisionServiceBase):
+class VisionService:
     def __init__(
         self,
         base_dir: str = settings.BASE_MODEL_DIR,
@@ -53,121 +59,70 @@ class MoondreamVisionService(VisionServiceBase):
         except Exception as e:
             raise ModelLoadError(f"Failed to initialize vision service: {e}")
 
+    def _resize_image(self, image: Image.Image) -> Image.Image:
+        longest_edge = max(image.size)
+        if longest_edge > settings.MAX_IMAGE_SIZE:
+            scale = settings.MAX_IMAGE_SIZE / longest_edge
+            new_size = (int(image.size[0] * scale), int(image.size[1] * scale))
+            return image.resize(new_size, Image.Resampling.LANCZOS)
+        return image
+
     def _load_model(self) -> md.VLM:
-        """
-        Load the model from local path or API
-        """
+        """Load the model from local path or API."""
         if self.api_key:
             return md.vl(api_key=self.api_key)
         model_path = os.path.join(self.base_dir, self.model_name)
         if not os.path.exists(model_path):
-            model_path = self._download_model(model_path)
+            download_model(self.model_name, model_path)
         return md.vl(model=model_path)
 
-    def _download_model(self, model_path: str) -> str:
-        """
-        Download the model from the provided URL
-        """
-        if self.model_name == "moondream-2b-int8":
-            url = os.environ.get("MOONDREAM_2B_URL")
-        elif self.model_name == "moondream-0_5b-int8":
-            url = os.environ.get("MOONDREAM_500M_URL")
-        else:
-            raise ModelDownloadError(f"Unsupported model name: {self.model_name}")
-
-        if not url:
-            raise ModelDownloadError("Model URL not found in environment variables")
-
-        try:
-            print(f"Downloading model from {url}")
-            response = requests.get(url, stream=True, allow_redirects=True)
-            response.raise_for_status()
-
-            total_size = int(response.headers.get("content-length", 0))
-            block_size = 8192
-            wrote = 0
-
-            with open(model_path + ".gz", "wb") as f:
-                for chunk in response.iter_content(chunk_size=block_size):
-                    if chunk:
-                        _ = f.write(chunk)
-                        wrote = wrote + len(chunk)
-                        progress = int((wrote / total_size) * 100) if total_size else 0
-                        msg = (
-                            f"Downloading model: {progress}% "
-                            f"({wrote / (1024 * 1024):.2f} MB / "
-                            f"{total_size / (1024 * 1024):.2f} MB)"
-                        )
-                        print(msg, end="\r")
-
-            with (
-                gzip.open(model_path + ".gz", "rb") as f_in,
-                open(model_path, "wb") as f_out,
-            ):
-                shutil.copyfileobj(f_in, f_out)
-
-            os.remove(model_path + ".gz")
-            return model_path
-        except Exception as e:
-            raise ModelDownloadError(f"Error downloading model: {e}")
-
-    @override
     def analyze_image(self, image: Image.Image, user_prompt: str) -> str:
         """
-        Analyze an image using the Moondream model
+        Analyze an image using the Moondream model.
+
         Args:
-            image: The image to analyze
-            user_prompt: The user's prompt
+            image: The image to analyze (PIL Image).
+            user_prompt: The user's text prompt.
+
         Returns:
-            Generated text description
+            Generated text description.
         """
         image = self._resize_image(image)
         try:
             start_time = time.time()
-            # If using API, pass image directly; if local, encode first
             if self.api_key:
                 answer = self.model.query(image, user_prompt)["answer"]
             else:
                 encoded_image = self.model.encode_image(image)
                 answer = self.model.query(encoded_image, user_prompt)["answer"]
             end_time = time.time()
-            execution_time = end_time - start_time
-            print(f"Query execution time: {execution_time:.2f} seconds")
+            print(f"Query execution time: {end_time - start_time:.2f} seconds")
             return str(answer).strip()
         except Exception as e:
             raise ImageAnalysisError(f"Error analyzing image: {e}")
 
-    @override
     def calculate_token_cost(self, prompt: str, model_answer: str) -> tuple[int, int]:
-        """
-        Calculate the token cost of a prompt
-        Args:
-            prompt: The prompt to calculate the token cost for
-        Returns:
-            The token cost of the prompt
-        """
+        """Calculate token cost for a prompt and answer."""
         if self.api_key:
-            # Not available for remote API, return dummy values
             return (len(prompt), len(model_answer))
         openai_tokenizer = tiktoken.get_encoding("cl100k_base")
         input_tokens = len(prompt)
         output_tokens = len(openai_tokenizer.encode(model_answer))
         return (input_tokens, output_tokens)
 
-    @override
     def get_memory_usage(self) -> dict[str, float]:
+        """Get memory usage of the current process in MB."""
         if self.api_key:
-            # Not available for remote API, return dummy values
             return {"resident_memory": 0, "virtual_memory": 0}
         process = psutil.Process()
         memory = process.memory_info()
         return {
-            "resident_memory": memory.rss / 1024 / 1024,  # Resident memory in MB
-            "virtual_memory": memory.vms / 1024 / 1024,  # Virtual memory in MB
+            "resident_memory": memory.rss / 1024 / 1024,
+            "virtual_memory": memory.vms / 1024 / 1024,
         }
 
 
-def get_vision_service() -> MoondreamVisionService:
+def get_vision_service() -> VisionService:
     if settings.MOONDREAM_MODE == "api" and settings.MOONDREAM_API_KEY:
-        return MoondreamVisionService(api_key=settings.MOONDREAM_API_KEY)
-    return MoondreamVisionService()
+        return VisionService(api_key=settings.MOONDREAM_API_KEY)
+    return VisionService()
