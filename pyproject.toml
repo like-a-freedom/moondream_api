@@ -11,6 +11,8 @@ dependencies = [
     "psutil>=6.1.1",
 ]
 
+[tool.uv]
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",

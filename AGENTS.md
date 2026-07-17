@@ -10,24 +10,49 @@ Single FastAPI application — no frontend, database, or microservice split.
 
 ## Tech stack
 
-Python 3.14 · FastAPI · [uv](https://docs.astral.sh/uv/) · Docker (multi-stage) · GitHub Actions CI/CD · Ruff for linting · [ty](https://github.com/astral-sh/ty) for type checking
+Python 3.13 · FastAPI · [uv](https://docs.astral.sh/uv/) · Docker (multi-stage, profiles) · GitHub Actions CI/CD · Ruff for linting · [ty](https://github.com/astral-sh/ty) for type checking
 
 ## Getting started
 
 ### Local (Python 3.13)
 
-The project pins Python 3.13 locally because C-extension packages (`tiktoken`, `onnx`, `pydantic-core`) depend on PyO3 which only supports up to 3.13 on macOS ARM. Docker builds use Python 3.14 (builds from source).
-
 ```bash
-# Local (uses .python-version → 3.13)
 uv sync
 uv run fastapi run ./src/api.py --host 0.0.0.0 --port 8000
+```
 
-# Docker
+### Docker — cloud (default, lightweight)
+
+```bash
 docker compose up -d
 ```
 
-Service available at `localhost:8000` (local) or `localhost:18000` (Docker).
+Service available at `localhost:18000`. Build is arm64-native on Apple Silicon.
+
+### Docker — local inference (NVIDIA GPU / Photon)
+
+```bash
+docker compose --profile local up -d
+```
+
+Service available at `localhost:18001`. Requires NVIDIA GPU with CUDA 12.
+
+## Docker build profiles
+
+| Profile | Dockerfile | Base image | Size | Use case |
+|---|---|---|---|---|
+| `cloud` (default) | `Dockerfile` | `python:3.13-slim` | ~200 MB | Cloud API (no GPU) |
+| `local` | `Dockerfile.nvidia` | `nvidia/cuda:12.8-runtime` | ~5 GB | Local Photon (NVIDIA GPU) |
+
+The cloud image strips CUDA/PyTorch packages after install, keeping it lean for edge devices.
+
+```bash
+# Build and tag
+MOONDREAM_API_KEY=your-key docker compose up -d --build
+
+# NVIDIA variant
+docker compose --profile local up -d --build
+```
 
 ## Key commands
 
@@ -36,7 +61,8 @@ Service available at `localhost:8000` (local) or `localhost:18000` (Docker).
 | Install deps | `uv sync` |
 | Run locally | `uv run fastapi run ./src/api.py --host 0.0.0.0 --port 8000` |
 | Run via Docker | `docker compose up -d` |
-| Rebuild image | `docker compose up -d --build` |
+| Build cloud image | `docker compose up -d --build` |
+| Build local (NVIDIA) image | `docker compose --profile local up -d --build` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type check | `uv run ty check src/` |
@@ -80,7 +106,7 @@ The service exposes three groups of endpoints:
 
 ## Configuration
 
-All settings are driven by environment variables (`MODEL_NAME`, `MOONDREAM_MODE`, `MOONDREAM_API_KEY`, `MODEL_CACHE_DIR`, model download URLs). See `src/config.py` for the full list.
+All settings are driven by environment variables (`MODEL_NAME`, `MOONDREAM_MODE`, `MOONDREAM_API_KEY`). See `src/config.py` for the full list.
 
 ## Code exploration with octocode
 
@@ -168,7 +194,7 @@ Before any commit or PR:
 - Zero formatting issues (`uv run ruff format .`)
 - Zero type errors (`uv run ty check src/`)
 - All tests pass
-- Docker image builds successfully (`docker compose up -d --build`)
+- Cloud Docker image builds successfully (`docker compose up -d --build`)
 
 No exceptions. If any check fails, fix it before proceeding.
 

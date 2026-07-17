@@ -25,34 +25,44 @@ No model files to download. No GPU required for cloud mode.
 - Docker (or Python 3.13+ with `uv`)
 - [Moondream API key](https://moondream.ai/c/cloud/api-keys)
 
-### Docker
+### Docker — cloud (default, lightweight)
 
 ```bash
-# Create docker-compose.yml (see below) and run:
 export MOONDREAM_API_KEY="your-api-key"
 docker compose up -d
 ```
 
-### Minimal `docker-compose.yml`
+Service available at `http://localhost:18000`. Fast build, no GPU required.
 
-```yaml
-services:
-  moondream-api:
-    image: ghcr.io/like-a-freedom/moondream_api:latest
-    container_name: moondream_api
-    restart: unless-stopped
-    environment:
-      - MOONDREAM_API_KEY=your_api_key_here
-      - MOONDREAM_MODE=api                       # "api" (cloud, default) or "local" (Photon)
-      - MODEL_NAME=moondream3.1-9B-A2B           # model to use
-    ports:
-      - 18000:8000
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+### Docker — local inference (NVIDIA GPU / Photon)
+
+```bash
+export MOONDREAM_API_KEY="your-api-key"
+docker compose --profile local up -d
+```
+
+Service available at `http://localhost:18001`. Requires NVIDIA GPU with CUDA 12. Build is slower (~20 min) — it downloads CUDA runtime + PyTorch.
+
+### Docker profiles
+
+The project provides two Docker Compose profiles:
+
+| Profile | Build | Image size | Use case |
+|---|---|---|---|
+| `cloud` (default) | `Dockerfile` | ~200 MB | Cloud API (no GPU) |
+| `local` | `Dockerfile.nvidia` + `nvidia/cuda` base | ~5 GB | Local Photon (NVIDIA GPU) |
+
+The cloud profile strips CUDA packages after installation, keeping the image lean.
+
+### Build locally
+
+```bash
+# Build and tag as latest
+docker compose build
+docker tag moondream-api:latest moondream-api:$(git rev-parse --short HEAD)
+
+# Build NVIDIA variant
+docker compose --profile local build
 ```
 
 ### Local (Python 3.13+)
