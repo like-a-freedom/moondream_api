@@ -13,3 +13,30 @@ class Settings:
 
 
 settings = Settings()
+
+
+def resolve_proxy(target_url: str) -> str | None:
+    """Resolve proxy URL for a target URL from standard environment variables.
+
+    Respects the standard proxy convention:
+    - ALL_PROXY / all_proxy — fallback for all protocols
+    - HTTPS_PROXY / https_proxy — for HTTPS targets
+    - HTTP_PROXY / http_proxy — for HTTP targets
+    """
+
+    def _env(name: str) -> str | None:
+        return os.environ.get(name)
+
+    if target_url.startswith("https://"):
+        return (
+            _env("HTTPS_PROXY")
+            or _env("https_proxy")
+            or _env("ALL_PROXY")
+            or _env("all_proxy")
+        )
+    return (
+        _env("HTTP_PROXY")
+        or _env("http_proxy")
+        or _env("ALL_PROXY")
+        or _env("all_proxy")
+    )

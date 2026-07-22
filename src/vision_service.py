@@ -6,7 +6,7 @@ import psutil
 from moondream.types import VLM as VLMClient
 from PIL import Image
 
-from config import settings
+from config import resolve_proxy, settings
 from exceptions import ImageAnalysisError, ImageLoadError
 
 
@@ -23,7 +23,7 @@ def load_image(source: str) -> Image.Image:
         if source.startswith(("http://", "https://")):
             import httpx
 
-            response = httpx.get(source, timeout=30)
+            response = httpx.get(source, timeout=30, proxy=resolve_proxy(source))
             response.raise_for_status()
             return Image.open(io.BytesIO(response.content))
         elif source.startswith("data:"):

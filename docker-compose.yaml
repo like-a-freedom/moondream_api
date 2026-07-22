@@ -10,6 +10,10 @@ services:
       - MOONDREAM_API_KEY=${MOONDREAM_API_KEY?err}
       - MOONDREAM_MODE=${MOONDREAM_MODE:-api}
       - MODEL_NAME=${MODEL_NAME:-moondream3.1-9B-A2B}
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - ALL_PROXY=${ALL_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-}
     ports:
       - 18000:8000
     healthcheck:
@@ -33,6 +37,10 @@ services:
       - MOONDREAM_API_KEY=${MOONDREAM_API_KEY?err}
       - MOONDREAM_MODE=local
       - MODEL_NAME=${MODEL_NAME:-moondream3.1-9B-A2B}
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - ALL_PROXY=${ALL_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-}
     ports:
       - 18001:8000
     deploy:

@@ -87,6 +87,39 @@ All settings are driven by environment variables:
 | `MOONDREAM_API_KEY` | `""` | **Required.** Moondream API key |
 | `MOONDREAM_MODE` | `"api"` | `"api"` for cloud, `"local"` for Photon |
 | `MODEL_NAME` | `"moondream3.1-9B-A2B"` | Model to use (`moondream3.1-9B-A2B`, `moondream3-preview`, or a finetune) |
+| `HTTP_PROXY` | `""` | HTTP proxy for outbound requests (image fetching, cloud API) |
+| `HTTPS_PROXY` | `""` | HTTPS proxy for outbound requests |
+| `ALL_PROXY` | `""` | Fallback proxy for all protocols |
+| `NO_PROXY` | `""` | Comma-separated list of hosts to bypass proxy |
+
+### Proxy Configuration
+
+The service supports outbound HTTP/HTTPS proxies. Set standard environment variables:
+
+```bash
+# Docker — all traffic through a proxy
+export HTTPS_PROXY="http://proxy.example.com:8080"
+docker compose up -d
+
+# Or with ALL_PROXY as a catch-all
+export ALL_PROXY="socks5://proxy.example.com:1080"
+docker compose up -d
+
+# Exclude specific hosts from proxy
+export NO_PROXY="localhost,127.0.0.1,10.0.0.0/8"
+```
+
+For local Python runs, set the same variables in your shell:
+
+```bash
+HTTPS_PROXY="http://proxy.example.com:8080" \
+MOONDREAM_API_KEY="your-key" \
+uv run fastapi run ./src/api.py --host 0.0.0.0 --port 8000
+```
+
+**What goes through the proxy:**
+- Image fetching from HTTP/HTTPS URLs (`httpx`)
+- Moondream Cloud API calls (`urllib.request` — respects env vars natively)
 
 ## API Endpoints
 
